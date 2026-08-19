@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bellucci | Painel Administrativo</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600,700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/supabase-client.js"></script>
+<style>
+  :root{
+    --green-dark:#213b2c;
+    --green:#3c5f45;
+    --gold:#c9a24a;
+    --gold-light:#e6cd8a;
+    --cream:#f4ecda;
+    --black:#0c0f0d;
+    --black-soft:#121712;
+    --red:#e08a8a;
+    --shadow:0 20px 50px rgba(0,0,0,.5);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--black);color:var(--cream);
+    font-family:'Poppins',sans-serif;min-height:100vh;
+  }
+  h1,h2,h3{font-family:'Playfair Display',serif;font-weight:700;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+
+  /* ---------- login ---------- */
+  #login-screen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .login-card{
+    width:100%;max-width:360px;background:var(--black-soft);
+    border:1px solid rgba(201,162,74,.25);border-radius:18px;
+    padding:36px 28px;box-shadow:var(--shadow);text-align:center;
+  }
+  .login-card h1{font-size:26px;color:var(--gold-light);margin-bottom:6px;}
+  .login-card p{font-size:13px;color:rgba(244,236,218,.6);margin-bottom:26px;}
+  .login-card input{
+    width:100%;padding:13px 16px;border-radius:10px;
+    border:1px solid rgba(201,162,74,.3);background:rgba(0,0,0,.3);
+    color:var(--cream);font-size:14px;margin-bottom:14px;outline:none;
+  }
+  .login-card input:focus{border-color:var(--gold);}
+  .login-card button{
+    width:100%;padding:13px;border:none;border-radius:10px;
+    background:linear-gradient(120deg,var(--gold),var(--gold-light));
+    color:var(--black);font-weight:600;font-size:14px;
+  }
+  .login-error{color:var(--red);font-size:12.5px;margin-top:12px;display:none;}
+  .login-error.show{display:block;}
+
+  /* ---------- app shell ---------- */
+  #app{display:none;}
+  #app.show{display:block;}
+  header{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 24px;background:rgba(12,15,13,.95);
+    backdrop-filter:blur(10px);border-bottom:1px solid rgba(201,162,74,.18);
+    flex-wrap:wrap;gap:12px;
+  }
+  header h1{font-size:19px;color:var(--gold-light);}
+  header .actions{display:flex;align-items:center;gap:14px;font-size:12.5px;color:rgba(244,236,218,.6);}
+  #logout-btn{
+    background:none;border:1px solid rgba(201,162,74,.3);color:var(--cream);
+    padding:8px 16px;border-radius:20px;font-size:12.5px;
+  }
+  #logout-btn:hover{border-color:var(--gold);}
+
+  nav.tabs{
+    display:flex;gap:6px;padding:14px 24px 0;overflow-x:auto;
+  }
+  nav.tabs button{
+    background:none;border:none;color:rgba(244,236,218,.55);
+    padding:10px 16px;font-size:13px;font-weight:500;white-space:nowrap;
+    border-bottom:2px solid transparent;
+  }
+  nav.tabs button.active{color:var(--gold-light);border-color:var(--gold);}
+
+  main{padding:20px 24px 60px;max-width:1100px;margin:0 auto;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{
+    background:var(--black-soft);border:1px solid rgba(201,162,74,.15);
+    border-radius:16px;padding:20px;margin-bottom:20px;
+  }
+  .card h2{font-size:17px;color:var(--gold-light);margin-bottom:14px;}
+  .row-flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+
+  .btn{
+    border:none;border-radius:20px;padding:10px 18px;font-size:12.5px;font-weight:600;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn-gold{background:linear-gradient(120deg,var(--gold),var(--gold-light));color:var(--black);}
+  .btn-outline{background:none;border:1px solid rgba(201,162,74,.35);color:var(--cream);}
+  .btn-outline:hover{border-color:var(--gold);}
+  .btn-danger{background:none;border:1px solid rgba(224,138,138,.4);color:var(--red);}
+  .btn-danger:hover{background:rgba(224,138,138,.1);}
+  .btn-sm{padding:6px 12px;font-size:11.5px;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;padding:8px 10px;color:var(--gold-light);
+    font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;
+    border-bottom:1px solid rgba(201,162,74,.2);white-space:nowrap;
+  }
+  tbody td{padding:10px;border-bottom:1px solid rgba(244,236,218,.06);vertical-align:middle;}
+  tbody tr:hover{background:rgba(201,162,74,.04);}
+  .table-wrap{overflow-x:auto;}
+
+  input[type=text], input[type=number], input[type=password], input[type=time], input[type=datetime-local], textarea, select{
+    background:rgba(0,0,0,.3);border:1px solid rgba(201,162,74,.25);
+    color:var(--cream);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;
+  }
+  input:focus, textarea:focus, select:focus{border-color:var(--gold);}
+  label{font-size:11.5px;color:rgba(244,236,218,.55);display:block;margin-bottom:4px;}
+  .field{margin-bottom:12px;}
+
+  .pill{
+    display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;
+  }
+  .pill-active{background:rgba(143,209,143,.15);color:#8fd18f;}
+  .pill-inactive{background:rgba(224,138,138,.15);color:var(--red);}
+
+  .status-select{background:rgba(0,0,0,.3);}
+
+  .hours-grid{display:grid;grid-template-columns:70px 1fr 1fr 90px;gap:10px;align-items:center;margin-bottom:10px;}
+  .hours-grid .day-label{font-size:12.5px;color:var(--cream);font-weight:600;}
+  .hours-grid label{margin:0;}
+  .checkbox-row{display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(244,236,218,.6);}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);
+    background:var(--black-soft);border:1px solid var(--gold);color:var(--cream);
+    padding:12px 22px;border-radius:30px;font-size:13px;box-shadow:var(--shadow);
+    transition:transform .3s ease;z-index:100;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0);}
+
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:90;
+    align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:var(--black-soft);border:1px solid var(--gold);border-radius:16px;
+    padding:24px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;
+  }
+  .modal-box h3{color:var(--gold-light);font-size:17px;margin-bottom:16px;}
+  .modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end;}
+
+  .empty-hint{color:rgba(244,236,218,.4);font-size:13px;padding:20px 0;text-align:center;}
+
+  @media(max-width:640px){
+    header{padding:14px 16px;}
+    main{padding:16px 16px 60px;}
+    nav.tabs{padding:12px 16px 0;}
+    .hours-grid{grid-template-columns:50px 1fr 1fr 70px;gap:6px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Bellucci</h1>
+    <p>Painel administrativo — acesso restrito</p>
+    <input type="password" id="login-password" placeholder="Senha do painel">
+    <button id="login-btn">Entrar</button>
+    <div class="login-error" id="login-error">Senha incorreta. Tente novamente.</div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <h1>🍇 Bellucci — Painel</h1>
+    <div class="actions">
+      <span id="admin-email"></span>
+      <button id="logout-btn">Sair</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="produtos">Produtos</button>
+    <button class="tab-btn" data-tab="horario">Horário</button>
+    <button class="tab-btn" data-tab="pedidos">Pedidos</button>
+    <button class="tab-btn" data-tab="cupons">Cupons</button>
+  </nav>
+
+  <main>
+    <!-- ===================== PRODUTOS ===================== -->
+    <section class="panel active" id="panel-produtos">
+      <div class="card">
+        <div class="row-flex" style="justify-content:space-between;">
+          <h2 style="margin:0;">Produtos do cardápio</h2>
+          <button class="btn btn-gold" id="add-product-btn">+ Novo produto</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Tag</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="products-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-hint" id="products-empty" style="display:none;">Carregando produtos...</div>
+      </div>
+    </section>
+
+    <!-- ===================== HORÁRIO ===================== -->
+    <section class="panel" id="panel-horario">
+      <div class="card">
+        <h2>Horário de funcionamento</h2>
+        <div id="hours-form"></div>
+      </div>
+      <div class="card">
+        <h2>Status manual</h2>
+        <div class="field">
+          <label>Forçar status da loja</label>
+          <select id="store-override">
+            <option value="auto">Automático (segue o horário acima)</option>
+            <option value="open">Forçar aberto agora</option>
+            <option value="closed">Forçar fechado agora</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Dados de contato e entrega</h2>
+        <div class="field"><label>Número do WhatsApp (só números, com DDI+DDD)</label><input type="text" id="set-whatsapp" placeholder="5513999999999"></div>
+        <div class="field"><label>Endereço</label><input type="text" id="set-address"></div>
+        <div class="field"><label>Tempo de entrega</label><input type="text" id="set-delivery" placeholder="15-25min"></div>
+        <div class="field"><label>Pedido mínimo (R$)</label><input type="number" step="0.01" id="set-minorder"></div>
+        <button class="btn btn-gold" id="save-settings-btn">Salvar configurações</button>
+      </div>
+    </section>
+
+    <!-- ===================== PEDIDOS ===================== -->
+    <section class="panel" id="panel-pedidos">
+      <div class="card">
+        <div class="row-flex" style="justify-content:space-between;">
+          <h2 style="margin:0;">Pedidos recebidos</h2>
+          <button class="btn btn-outline btn-sm" id="refresh-orders-btn">↻ Atualizar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Quando</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Pagamento</th><th>Cupom</th><th>Status</th></tr>
+            </thead>
+            <tbody id="orders-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-hint" id="orders-empty" style="display:none;">Nenhum pedido ainda.</div>
+      </div>
+    </section>
+
+    <!-- ===================== CUPONS ===================== -->
+    <section class="panel" id="panel-cupons">
+      <div class="card">
+        <div class="row-flex" style="justify-content:space-between;">
+          <h2 style="margin:0;">Cupons de desconto</h2>
+          <button class="btn btn-gold" id="add-coupon-btn">+ Novo cupom</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Código</th><th>Tipo</th><th>Valor</th><th>Usos</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody id="coupons-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-hint" id="coupons-empty" style="display:none;">Nenhum cupom cadastrado.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal-overlay"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const ADMIN_EMAIL = "luizaugustoxaviercunha@gmail.com";
+
+/* ===================== AUTH ===================== */
+async function checkSession(){
+  const { data } = await window.sb.auth.getSession();
+  if(data.session){
+    showApp(data.session);
+  }else{
+    document.getElementById("login-screen").style.display = "flex";
+  }
+}
+
+document.getElementById("login-btn").onclick = doLogin;
+document.getElementById("login-password").addEventListener("keydown", e=>{
+  if(e.key === "Enter") doLogin();
+});
+
+async function doLogin(){
+  const password = document.getElementById("login-password").value;
+  const errEl = document.getElementById("login-error");
+  errEl.classList.remove("show");
+  if(!password) return;
+  const { data, error } = await window.sb.auth.signInWithPassword({ email: ADMIN_EMAIL, password });
+  if(error || !data.session){
+    errEl.classList.add("show");
+    return;
+  }
+  showApp(data.session);
+}
+
+function showApp(session){
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app").classList.add("show");
+  document.getElementById("admin-email").textContent = session.user.email;
+  loadProducts();
+  loadSettings();
+  loadOrders();
+  loadCoupons();
+}
+
+document.getElementById("logout-btn").onclick = async ()=>{
+  await window.sb.auth.signOut();
+  location.reload();
+};
+
+/* ===================== TABS ===================== */
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("panel-"+btn.dataset.tab).classList.add("active");
+  };
+});
+
+/* ===================== TOAST ===================== */
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(()=> t.classList.remove("show"), 2600);
+}
+
+/* ===================== MODAL HELPER ===================== */
+function openModal(html){
+  const overlay = document.getElementById("modal-overlay");
+  overlay.innerHTML = `<div class="modal-box">${html}</div>`;
+  overlay.classList.add("show");
+  overlay.onclick = (e)=>{ if(e.target === overlay) closeModal(); };
+}
+function closeModal(){
+  document.getElementById("modal-overlay").classList.remove("show");
+}
+
+/* ===================== PRODUTOS ===================== */
+let allProducts = [];
+let allCategories = [];
+
+async function loadProducts(){
+  const [prodRes, catRes] = await Promise.all([
+    window.sb.from("products").select("*").order("sort_order"),
+    window.sb.from("categories").select("*").order("sort_order")
+  ]);
+  if(prodRes.error){ showToast("Erro ao carregar produtos"); return; }
+  allProducts = prodRes.data;
+  allCategories = catRes.data || [];
+  renderProductsTable();
+}
+
+function renderProductsTable(){
+  const tbody = document.getElementById("products-tbody");
+  const empty = document.getElementById("products-empty");
+  if(!allProducts.length){
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    empty.textContent = "Nenhum produto cadastrado.";
+    return;
+  }
+  empty.style.display = "none";
+  const catName = (id)=> (allCategories.find(c=>c.id===id) || {}).name || id;
+  tbody.innerHTML = allProducts.map(p=>`
+    <tr>
+      <td>${p.name}</td>
+      <td>${catName(p.cat_id)}</td>
+      <td>R$ ${Number(p.price).toFixed(2).replace('.',',')}</td>
+      <td>${p.tag === "bestseller" ? "🔥 Mais vendido" : p.tag === "lowstock" ? "⏳ Últimas unidades" : "—"}</td>
+      <td><span class="pill ${p.active ? 'pill-active' : 'pill-inactive'}">${p.active ? "Ativo" : "Oculto"}</span></td>
+      <td>
+        <div class="row-flex">
+          <button class="btn btn-outline btn-sm" data-edit="${p.id}">Editar</button>
+          <button class="btn btn-danger btn-sm" data-delete="${p.id}">Excluir</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+
+  tbody.querySelectorAll("[data-edit]").forEach(btn=>{
+    btn.onclick = ()=> openProductForm(allProducts.find(p=>p.id===btn.dataset.edit));
+  });
+  tbody.querySelectorAll("[data-delete]").forEach(btn=>{
+    btn.onclick = ()=> deleteProduct(btn.dataset.delete);
+  });
+}
+
+document.getElementById("add-product-btn").onclick = ()=> openProductForm(null);
+
+function openProductForm(product){
+  const isEdit = !!product;
+  const catOptions = allCategories.map(c=>`<option value="${c.id}" ${product && product.cat_id===c.id ? "selected" : ""}>${c.name}</option>`).join("");
+  openModal(`
+    <h3>${isEdit ? "Editar produto" : "Novo produto"}</h3>
+    <div class="field"><label>Nome</label><input type="text" id="pf-name" value="${product ? product.name.replace(/"/g,'&quot;') : ''}"></div>
+    <div class="field"><label>Categoria</label><select id="pf-cat">${catOptions}</select></div>
+    <div class="field"><label>Descrição (opcional)</label><input type="text" id="pf-desc" value="${product && product.description ? product.description.replace(/"/g,'&quot;') : ''}"></div>
+    <div class="field"><label>Preço (R$)</label><input type="number" step="0.01" id="pf-price" value="${product ? product.price : ''}"></div>
+    <div class="field"><label>URL da imagem (opcional)</label><input type="text" id="pf-img" value="${product && product.img ? product.img : ''}"></div>
+    <div class="field"><label>Selo (opcional, ex: Novidade, Recomendado)</label><input type="text" id="pf-badge" value="${product && product.badge ? product.badge : ''}"></div>
+    <div class="field">
+      <label>Destaque de estoque/popularidade</label>
+      <select id="pf-tag">
+        <option value="">Nenhum</option>
+        <option value="bestseller" ${product && product.tag==='bestseller' ? 'selected':''}>🔥 Mais vendido</option>
+        <option value="lowstock" ${product && product.tag==='lowstock' ? 'selected':''}>⏳ Últimas unidades</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="checkbox-row"><input type="checkbox" id="pf-active" ${!product || product.active ? "checked" : ""}> Produto ativo (visível no cardápio)</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="pf-cancel">Cancelar</button>
+      <button class="btn btn-gold" id="pf-save">${isEdit ? "Salvar" : "Criar produto"}</button>
+    </div>
+  `);
+  document.getElementById("pf-cancel").onclick = closeModal;
+  document.getElementById("pf-save").onclick = ()=> saveProduct(product ? product.id : null);
+}
+
+async function saveProduct(id){
+  const name = document.getElementById("pf-name").value.trim();
+  const cat_id = document.getElementById("pf-cat").value;
+  const description = document.getElementById("pf-desc").value.trim() || null;
+  const price = parseFloat(document.getElementById("pf-price").value);
+  const img = document.getElementById("pf-img").value.trim() || null;
+  const badge = document.getElementById("pf-badge").value.trim() || null;
+  const tag = document.getElementById("pf-tag").value || null;
+  const active = document.getElementById("pf-active").checked;
+
+  if(!name || !cat_id || isNaN(price)){
+    showToast("Preencha nome, categoria e preço.");
+    return;
+  }
+
+  const payload = { name, cat_id, description, price, img, badge, tag, active };
+  const res = id
+    ? await window.sb.from("products").update(payload).eq("id", id)
+    : await window.sb.from("products").insert(payload);
+
+  if(res.error){ showToast("Erro ao salvar: " + res.error.message); return; }
+  closeModal();
+  showToast(id ? "Produto atualizado!" : "Produto criado!");
+  loadProducts();
+}
+
+async function deleteProduct(id){
+  if(!confirm("Tem certeza que deseja excluir este produto?")) return;
+  const { error } = await window.sb.from("products").delete().eq("id", id);
+  if(error){ showToast("Erro ao excluir: " + error.message); return; }
+  showToast("Produto excluído.");
+  loadProducts();
+}
+
+/* ===================== HORÁRIO / SETTINGS ===================== */
+const DAY_KEYS = [["mon","Seg"],["tue","Ter"],["wed","Qua"],["thu","Qui"],["fri","Sex"],["sat","Sáb"],["sun","Dom"]];
+let currentSettings = null;
+
+async function loadSettings(){
+  const { data, error } = await window.sb.from("settings").select("*").eq("id", true).maybeSingle();
+  if(error || !data){ showToast("Erro ao carregar configurações"); return; }
+  currentSettings = data;
+  renderHoursForm(data.hours || {});
+
+  document.getElementById("store-override").value =
+    data.store_open_override === true ? "open" : data.store_open_override === false ? "closed" : "auto";
+  document.getElementById("set-whatsapp").value = data.whatsapp_number || "";
+  document.getElementById("set-address").value = data.address || "";
+  document.getElementById("set-delivery").value = data.delivery_time || "";
+  document.getElementById("set-minorder").value = data.min_order || 0;
+}
+
+function renderHoursForm(hours){
+  const wrap = document.getElementById("hours-form");
+  wrap.innerHTML = DAY_KEYS.map(([key,label])=>{
+    const d = hours[key] || {open:"10:00",close:"22:00",closed:false};
+    return `
+      <div class="hours-grid" data-day="${key}">
+        <div class="day-label">${label}</div>
+        <div><label>Abre</label><input type="time" class="h-open" value="${d.open}" ${d.closed ? "disabled":""}></div>
+        <div><label>Fecha</label><input type="time" class="h-close" value="${d.close}" ${d.closed ? "disabled":""}></div>
+        <label class="checkbox-row"><input type="checkbox" class="h-closed" ${d.closed ? "checked":""}> Fechado</label>
+      </div>
+    `;
+  }).join("") + `<button class="btn btn-gold" id="save-hours-btn" style="margin-top:6px;">Salvar horário</button>`;
+
+  wrap.querySelectorAll(".h-closed").forEach(cb=>{
+    cb.onchange = ()=>{
+      const row = cb.closest(".hours-grid");
+      row.querySelector(".h-open").disabled = cb.checked;
+      row.querySelector(".h-close").disabled = cb.checked;
+    };
+  });
+
+  document.getElementById("save-hours-btn").onclick = saveHours;
+}
+
+async function saveHours(){
+  const hours = {};
+  document.querySelectorAll("#hours-form .hours-grid").forEach(row=>{
+    const key = row.dataset.day;
+    hours[key] = {
+      open: row.querySelector(".h-open").value || "10:00",
+      close: row.querySelector(".h-close").value || "22:00",
+      closed: row.querySelector(".h-closed").checked
+    };
+  });
+  const { error } = await window.sb.from("settings").update({ hours }).eq("id", true);
+  if(error){ showToast("Erro ao salvar horário: " + error.message); return; }
+  showToast("Horário salvo!");
+}
+
+document.getElementById("save-settings-btn").onclick = async ()=>{
+  const overrideVal = document.getElementById("store-override").value;
+  const store_open_override = overrideVal === "open" ? true : overrideVal === "closed" ? false : null;
+  const payload = {
+    store_open_override,
+    whatsapp_number: document.getElementById("set-whatsapp").value.trim(),
+    address: document.getElementById("set-address").value.trim(),
+    delivery_time: document.getElementById("set-delivery").value.trim(),
+    min_order: parseFloat(document.getElementById("set-minorder").value) || 0
+  };
+  const { error } = await window.sb.from("settings").update(payload).eq("id", true);
+  if(error){ showToast("Erro ao salvar: " + error.message); return; }
+  showToast("Configurações salvas!");
+};
+
+/* ===================== PEDIDOS ===================== */
+async function loadOrders(){
+  const { data, error } = await window.sb.from("orders").select("*").order("created_at", { ascending:false }).limit(100);
+  if(error){ showToast("Erro ao carregar pedidos"); return; }
+  renderOrdersTable(data || []);
+}
+
+function renderOrdersTable(orders){
+  const tbody = document.getElementById("orders-tbody");
+  const empty = document.getElementById("orders-empty");
+  if(!orders.length){
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = orders.map(o=>{
+    const when = new Date(o.created_at).toLocaleString("pt-BR", { timeZone:"America/Sao_Paulo", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+    const itemsSummary = (o.items || []).map(it=>`${it.qty}x ${it.name}`).join(", ");
+    return `
+      <tr>
+        <td>${when}</td>
+        <td>${o.customer_name}</td>
+        <td title="${itemsSummary.replace(/"/g,'&quot;')}">${itemsSummary.length>40 ? itemsSummary.slice(0,40)+"…" : itemsSummary}</td>
+        <td>R$ ${Number(o.total).toFixed(2).replace('.',',')}</td>
+        <td>${o.payment_method}</td>
+        <td>${o.coupon_code || "—"}</td>
+        <td>
+          <select class="status-select" data-order="${o.id}">
+            <option value="novo" ${o.status==='novo'?'selected':''}>Novo</option>
+            <option value="preparando" ${o.status==='preparando'?'selected':''}>Preparando</option>
+            <option value="entregue" ${o.status==='entregue'?'selected':''}>Entregue</option>
+            <option value="cancelado" ${o.status==='cancelado'?'selected':''}>Cancelado</option>
+          </select>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  tbody.querySelectorAll(".status-select").forEach(sel=>{
+    sel.onchange = async ()=>{
+      const { error } = await window.sb.from("orders").update({ status: sel.value }).eq("id", sel.dataset.order);
+      if(error){ showToast("Erro ao atualizar status"); return; }
+      showToast("Status atualizado!");
+    };
+  });
+}
+
+document.getElementById("refresh-orders-btn").onclick = loadOrders;
+
+/* ===================== CUPONS ===================== */
+async function loadCoupons(){
+  const { data, error } = await window.sb.from("coupons").select("*").order("created_at", { ascending:false });
+  if(error){ showToast("Erro ao carregar cupons"); return; }
+  renderCouponsTable(data || []);
+}
+
+function renderCouponsTable(coupons){
+  const tbody = document.getElementById("coupons-tbody");
+  const empty = document.getElementById("coupons-empty");
+  if(!coupons.length){
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = coupons.map(c=>`
+    <tr>
+      <td>${c.code}</td>
+      <td>${c.type === "percent" ? "% Percentual" : "R$ Fixo"}</td>
+      <td>${c.type === "percent" ? c.value + "%" : "R$ " + Number(c.value).toFixed(2).replace('.',',')}</td>
+      <td>${c.used_count}${c.usage_limit ? " / " + c.usage_limit : ""}</td>
+      <td><span class="pill ${c.active ? 'pill-active' : 'pill-inactive'}">${c.active ? "Ativo" : "Inativo"}</span></td>
+      <td>
+        <div class="row-flex">
+          <button class="btn btn-outline btn-sm" data-toggle="${c.code}" data-active="${c.active}">${c.active ? "Desativar" : "Ativar"}</button>
+          <button class="btn btn-danger btn-sm" data-delcoupon="${c.code}">Excluir</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+
+  tbody.querySelectorAll("[data-toggle]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const newActive = btn.dataset.active !== "true";
+      const { error } = await window.sb.from("coupons").update({ active: newActive }).eq("code", btn.dataset.toggle);
+      if(error){ showToast("Erro ao atualizar cupom"); return; }
+      loadCoupons();
+    };
+  });
+  tbody.querySelectorAll("[data-delcoupon]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(!confirm("Excluir este cupom?")) return;
+      const { error } = await window.sb.from("coupons").delete().eq("code", btn.dataset.delcoupon);
+      if(error){ showToast("Erro ao excluir cupom"); return; }
+      showToast("Cupom excluído.");
+      loadCoupons();
+    };
+  });
+}
+
+document.getElementById("add-coupon-btn").onclick = ()=>{
+  openModal(`
+    <h3>Novo cupom</h3>
+    <div class="field"><label>Código (ex: BEMVINDO10)</label><input type="text" id="cf-code" style="text-transform:uppercase;"></div>
+    <div class="field">
+      <label>Tipo de desconto</label>
+      <select id="cf-type">
+        <option value="percent">Percentual (%)</option>
+        <option value="fixed">Valor fixo (R$)</option>
+      </select>
+    </div>
+    <div class="field"><label>Valor</label><input type="number" step="0.01" id="cf-value"></div>
+    <div class="field"><label>Pedido mínimo (R$, opcional)</label><input type="number" step="0.01" id="cf-minorder" value="0"></div>
+    <div class="field"><label>Limite de usos (opcional)</label><input type="number" id="cf-limit" placeholder="Sem limite"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="cf-cancel">Cancelar</button>
+      <button class="btn btn-gold" id="cf-save">Criar cupom</button>
+    </div>
+  `);
+  document.getElementById("cf-cancel").onclick = closeModal;
+  document.getElementById("cf-save").onclick = saveCoupon;
+};
+
+async function saveCoupon(){
+  const code = document.getElementById("cf-code").value.trim().toUpperCase();
+  const type = document.getElementById("cf-type").value;
+  const value = parseFloat(document.getElementById("cf-value").value);
+  const min_order = parseFloat(document.getElementById("cf-minorder").value) || 0;
+  const limitRaw = document.getElementById("cf-limit").value;
+  const usage_limit = limitRaw ? parseInt(limitRaw, 10) : null;
+
+  if(!code || isNaN(value)){
+    showToast("Preencha o código e o valor do cupom.");
+    return;
+  }
+
+  const { error } = await window.sb.from("coupons").insert({ code, type, value, min_order, usage_limit, active: true });
+  if(error){ showToast("Erro ao criar cupom: " + error.message); return; }
+  closeModal();
+  showToast("Cupom criado!");
+  loadCoupons();
+}
+
+/* ===================== INIT ===================== */
+checkSession();
+</script>
+</body>
+</html>
