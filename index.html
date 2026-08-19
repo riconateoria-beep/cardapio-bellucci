@@ -1935,7 +1935,7 @@ async function boot(){
   comboCatItem.onclick = ()=> openComboModal();
   catRow.appendChild(comboCatItem);
 
-  CATEGORIES.forEach(c=>{
+  CATEGORIES.filter(c=>PRODUCTS.some(p=>p.cat===c.id)).forEach(c=>{
     const a = document.createElement("a");
     a.href = "#"+c.id;
     a.className = "cat-item";
