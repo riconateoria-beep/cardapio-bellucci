@@ -129,6 +129,62 @@
 
   .status-select{background:rgba(0,0,0,.3);}
 
+  /* ---------- kanban de pedidos ---------- */
+  .kanban-board{
+    display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:14px;
+    overflow-x:auto;padding-bottom:6px;
+  }
+  .kanban-col{
+    background:var(--black-soft);border:1px solid rgba(201,162,74,.15);border-radius:14px;
+    padding:12px;min-height:120px;display:flex;flex-direction:column;
+  }
+  .kanban-col.drag-over{border-color:var(--gold);background:rgba(201,162,74,.06);}
+  .kanban-col-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 10px;border-radius:10px;font-weight:700;font-size:13px;margin-bottom:4px;
+  }
+  .kanban-head-analise{background:rgba(224,138,138,.14);color:var(--red);}
+  .kanban-head-preparo{background:rgba(230,180,90,.14);color:#e6b45a;}
+  .kanban-head-pronto{background:rgba(120,160,220,.14);color:#7aa0dc;}
+  .kanban-head-entrega{background:rgba(143,209,143,.14);color:#8fd18f;}
+  .kanban-count{
+    background:rgba(0,0,0,.25);border-radius:20px;padding:1px 9px;font-size:11.5px;
+  }
+  .kanban-col-total{font-size:11.5px;color:rgba(244,236,218,.5);padding:0 10px 10px;}
+  .kanban-cards{display:flex;flex-direction:column;gap:10px;flex:1;min-height:40px;}
+
+  .order-card{
+    background:rgba(0,0,0,.28);border:1px solid rgba(201,162,74,.18);border-radius:12px;
+    padding:12px;cursor:grab;transition:border-color .2s, transform .2s;
+  }
+  .order-card:active{cursor:grabbing;}
+  .order-card.dragging{opacity:.4;}
+  .order-card:hover{border-color:rgba(201,162,74,.5);}
+  .order-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;}
+  .order-card-name{font-weight:600;font-size:13px;color:var(--cream);}
+  .order-card-time{font-size:11px;color:rgba(244,236,218,.45);white-space:nowrap;}
+  .order-card-items{font-size:11.5px;color:rgba(244,236,218,.65);margin-bottom:8px;}
+  .order-card-item{margin-bottom:6px;}
+  .order-card-item:last-child{margin-bottom:0;}
+  .order-card-item-main{display:block;font-weight:600;color:var(--cream);}
+  .order-card-subitem{padding-left:10px;line-height:1.5;}
+  .order-card-note{padding-left:10px;color:var(--gold-light);line-height:1.5;}
+  .order-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+  .order-card-total{font-weight:700;color:var(--gold-light);font-size:13px;}
+  .order-card-pay{font-size:10.5px;color:rgba(244,236,218,.45);}
+  .order-card-advance{
+    width:100%;background:linear-gradient(120deg,var(--gold),var(--gold-light));color:var(--black);
+    border:none;padding:8px;border-radius:20px;font-size:11.5px;font-weight:700;margin-bottom:6px;
+  }
+  .order-card-complete{
+    width:100%;background:rgba(143,209,143,.15);color:#8fd18f;border:1px solid rgba(143,209,143,.3);
+    padding:7px;border-radius:20px;font-size:11.5px;font-weight:600;margin-bottom:6px;
+  }
+  .order-card-cancel{
+    width:100%;background:none;color:rgba(224,138,138,.7);border:none;
+    font-size:10.5px;padding:2px;text-decoration:underline;
+  }
+
   .hours-grid{display:grid;grid-template-columns:70px 1fr 1fr 90px;gap:10px;align-items:center;margin-bottom:10px;}
   .hours-grid .day-label{font-size:12.5px;color:var(--cream);font-weight:600;}
   .hours-grid label{margin:0;}
@@ -141,6 +197,25 @@
     transition:transform .3s ease;z-index:100;
   }
   .toast.show{transform:translateX(-50%) translateY(0);}
+
+  /* ---------- aviso de whatsapp pro cliente ---------- */
+  .wa-notify-stack{
+    position:fixed;top:16px;right:16px;z-index:120;
+    display:flex;flex-direction:column;gap:10px;max-width:300px;
+  }
+  .wa-notify{
+    background:var(--black-soft);border:1px solid var(--gold);border-radius:14px;
+    padding:14px 16px;box-shadow:var(--shadow);
+    animation:waNotifyIn .25s ease;
+  }
+  @keyframes waNotifyIn{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
+  .wa-notify-text{font-size:12.5px;color:var(--cream);margin-bottom:10px;line-height:1.5;}
+  .wa-notify-actions{display:flex;gap:8px;}
+  .wa-notify-actions a{text-decoration:none;}
+  .wa-notify-dismiss{
+    background:none;border:1px solid rgba(201,162,74,.3);color:rgba(244,236,218,.6);
+    border-radius:20px;padding:8px 12px;font-size:11.5px;
+  }
 
   .modal-overlay{
     display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:90;
@@ -156,11 +231,96 @@
 
   .empty-hint{color:rgba(244,236,218,.4);font-size:13px;padding:20px 0;text-align:center;}
 
+  /* ---------- dashboard ---------- */
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;}
+  .stat-tile{
+    background:linear-gradient(160deg,rgba(201,162,74,.1),rgba(0,0,0,.2));
+    border:1px solid rgba(201,162,74,.2);border-radius:14px;padding:16px;
+  }
+  .stat-tile .stat-label{font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:rgba(244,236,218,.5);margin-bottom:8px;}
+  .stat-tile .stat-value{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold-light);}
+  .stat-tile .stat-sub{font-size:11.5px;color:rgba(244,236,218,.45);margin-top:4px;}
+
+  .rank-list{display:flex;flex-direction:column;gap:8px;}
+  .rank-row{
+    display:flex;align-items:center;gap:12px;padding:9px 12px;
+    background:rgba(0,0,0,.2);border-radius:10px;cursor:default;
+  }
+  .rank-row.clickable{cursor:pointer;transition:background .2s;}
+  .rank-row.clickable:hover{background:rgba(201,162,74,.1);}
+  .rank-pos{
+    width:22px;height:22px;border-radius:50%;background:rgba(201,162,74,.15);color:var(--gold-light);
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;
+  }
+  .rank-name{flex:1;font-size:13px;color:var(--cream);}
+  .rank-sub{font-size:11px;color:rgba(244,236,218,.45);}
+  .rank-value{font-weight:700;color:var(--gold-light);font-size:13px;white-space:nowrap;}
+
+  .bar-chart{display:flex;align-items:flex-end;gap:8px;height:140px;padding-top:10px;}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+  .bar-fill{
+    width:100%;max-width:34px;border-radius:6px 6px 0 0;
+    background:linear-gradient(180deg,var(--gold-light),var(--gold));
+    min-height:3px;transition:height .4s ease;
+  }
+  .bar-val{font-size:10px;color:rgba(244,236,218,.55);margin-bottom:4px;}
+  .bar-label{font-size:10.5px;color:rgba(244,236,218,.45);margin-top:6px;}
+
+  .status-snapshot{display:flex;gap:10px;flex-wrap:wrap;}
+  .status-chip{
+    flex:1;min-width:110px;text-align:center;padding:12px;border-radius:12px;
+    background:rgba(0,0,0,.2);border:1px solid rgba(201,162,74,.15);
+  }
+  .status-chip .chip-num{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold-light);}
+  .status-chip .chip-label{font-size:10.5px;color:rgba(244,236,218,.5);text-transform:uppercase;letter-spacing:.3px;margin-top:2px;}
+
+  /* ---------- carta do cliente (gamificado) ---------- */
+  .player-card{
+    width:100%;max-width:340px;margin:0 auto;border-radius:22px;padding:3px;
+    position:relative;overflow:hidden;
+  }
+  .player-card.tier-bronze{background:linear-gradient(135deg,#8a5a3c,#c99461,#8a5a3c);}
+  .player-card.tier-prata{background:linear-gradient(135deg,#8d97a1,#e4ecf2,#8d97a1);}
+  .player-card.tier-ouro{background:linear-gradient(135deg,#a3781f,var(--gold-light),#a3781f);}
+  .player-card.tier-diamante{background:linear-gradient(135deg,#3fa9c9,#c9f4ff,#8b5fd6,#3fa9c9);background-size:300% 300%;animation:cardShine 4s ease infinite;}
+  @keyframes cardShine{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+  .player-card-inner{
+    background:var(--black-soft);border-radius:19px;padding:20px;position:relative;
+  }
+  .player-card-badge{
+    position:absolute;top:14px;right:14px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+    padding:4px 10px;border-radius:20px;background:rgba(201,162,74,.15);color:var(--gold-light);
+  }
+  .player-card-avatar{
+    width:74px;height:74px;border-radius:50%;margin:0 auto 12px;
+    display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700;
+    background:radial-gradient(circle at 30% 25%,var(--green-light,#5c8265),var(--green-dark) 75%);
+    border:2px solid var(--gold);color:var(--cream);
+  }
+  .player-card-name{text-align:center;font-family:'Playfair Display',serif;font-size:19px;color:var(--cream);margin-bottom:2px;}
+  .player-card-phone{text-align:center;font-size:11.5px;color:rgba(244,236,218,.5);margin-bottom:16px;}
+  .player-card-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .pcs-item{background:rgba(0,0,0,.25);border-radius:10px;padding:10px;text-align:center;}
+  .pcs-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;color:rgba(244,236,218,.45);margin-bottom:4px;}
+  .pcs-value{font-size:14px;font-weight:700;color:var(--gold-light);}
+  .player-card-fav{
+    background:rgba(201,162,74,.08);border:1px dashed rgba(201,162,74,.3);border-radius:10px;
+    padding:10px 12px;text-align:center;margin-bottom:14px;
+  }
+  .player-card-fav-label{font-size:9.5px;text-transform:uppercase;color:rgba(244,236,218,.45);margin-bottom:2px;}
+  .player-card-fav-value{font-size:13px;color:var(--cream);font-weight:600;}
+  .player-card-xp-label{display:flex;justify-content:space-between;font-size:10.5px;color:rgba(244,236,218,.5);margin-bottom:5px;}
+  .player-card-xp-bar{height:8px;border-radius:6px;background:rgba(0,0,0,.3);overflow:hidden;}
+  .player-card-xp-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));transition:width .5s ease;}
+
   @media(max-width:640px){
     header{padding:14px 16px;}
     main{padding:16px 16px 60px;}
     nav.tabs{padding:12px 16px 0;}
     .hours-grid{grid-template-columns:50px 1fr 1fr 70px;gap:6px;}
+    .kanban-board{grid-template-columns:1fr;}
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+    .bar-chart{height:110px;}
   }
 </style>
 </head>
@@ -186,15 +346,85 @@
   </header>
 
   <nav class="tabs">
-    <button class="tab-btn active" data-tab="produtos">Produtos</button>
+    <button class="tab-btn active" data-tab="painel">Painel</button>
+    <button class="tab-btn" data-tab="produtos">Produtos</button>
     <button class="tab-btn" data-tab="horario">Horário</button>
     <button class="tab-btn" data-tab="pedidos">Pedidos</button>
     <button class="tab-btn" data-tab="cupons">Cupons</button>
+    <button class="tab-btn" data-tab="clientes">Clientes</button>
   </nav>
 
   <main>
+    <!-- ===================== PAINEL (DASHBOARD) ===================== -->
+    <section class="panel active" id="panel-painel">
+      <div class="card">
+        <h2>Hoje</h2>
+        <div class="stat-grid">
+          <div class="stat-tile">
+            <div class="stat-label">Faturamento hoje</div>
+            <div class="stat-value" id="dash-revenue-today">R$ 0,00</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">Pedidos hoje</div>
+            <div class="stat-value" id="dash-orders-today">0</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">Ticket médio hoje</div>
+            <div class="stat-value" id="dash-avg-today">R$ 0,00</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">Novos clientes hoje</div>
+            <div class="stat-value" id="dash-newcustomers-today">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Este mês</h2>
+        <div class="stat-grid">
+          <div class="stat-tile">
+            <div class="stat-label">Faturamento do mês</div>
+            <div class="stat-value" id="dash-revenue-month">R$ 0,00</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">Pedidos do mês</div>
+            <div class="stat-value" id="dash-orders-month">0</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">Ticket médio do mês</div>
+            <div class="stat-value" id="dash-avg-month">R$ 0,00</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-label">Clientes ativos no mês</div>
+            <div class="stat-value" id="dash-active-customers">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Faturamento — últimos 7 dias</h2>
+        <div class="bar-chart" id="dash-bar-chart"></div>
+      </div>
+
+      <div class="card">
+        <h2>Board de pedidos agora</h2>
+        <div class="status-snapshot" id="dash-status-snapshot"></div>
+      </div>
+
+      <div class="row-flex" style="align-items:stretch;">
+        <div class="card" style="flex:1;min-width:260px;">
+          <h2>🔥 Produtos mais vendidos</h2>
+          <div class="rank-list" id="dash-top-products"></div>
+        </div>
+        <div class="card" style="flex:1;min-width:260px;">
+          <h2>👑 Top clientes</h2>
+          <div class="rank-list" id="dash-top-customers"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ===================== PRODUTOS ===================== -->
-    <section class="panel active" id="panel-produtos">
+    <section class="panel" id="panel-produtos">
       <div class="card">
         <div class="row-flex" style="justify-content:space-between;">
           <h2 style="margin:0;">Produtos do cardápio</h2>
@@ -245,21 +475,37 @@
     <section class="panel" id="panel-pedidos">
       <div class="card">
         <div class="row-flex" style="justify-content:space-between;">
-          <h2 style="margin:0;">Pedidos recebidos</h2>
-          <button class="btn btn-outline btn-sm" id="refresh-orders-btn">↻ Atualizar</button>
+          <h2 style="margin:0;">Pedidos em andamento</h2>
+          <div class="row-flex">
+            <button class="btn btn-outline btn-sm" id="history-orders-btn">🕘 Histórico</button>
+            <button class="btn btn-outline btn-sm" id="refresh-orders-btn">↻ Atualizar</button>
+          </div>
         </div>
       </div>
-      <div class="card">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Quando</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Pagamento</th><th>Cupom</th><th>Status</th></tr>
-            </thead>
-            <tbody id="orders-tbody"></tbody>
-          </table>
+
+      <div class="kanban-board" id="kanban-board">
+        <div class="kanban-col" data-status="novo">
+          <div class="kanban-col-head kanban-head-analise"><span>Em Análise</span><span class="kanban-count" id="count-novo">0</span></div>
+          <div class="kanban-col-total" id="total-novo">R$ 0,00</div>
+          <div class="kanban-cards" id="cards-novo"></div>
         </div>
-        <div class="empty-hint" id="orders-empty" style="display:none;">Nenhum pedido ainda.</div>
+        <div class="kanban-col" data-status="preparando">
+          <div class="kanban-col-head kanban-head-preparo"><span>Em Preparo</span><span class="kanban-count" id="count-preparando">0</span></div>
+          <div class="kanban-col-total" id="total-preparando">R$ 0,00</div>
+          <div class="kanban-cards" id="cards-preparando"></div>
+        </div>
+        <div class="kanban-col" data-status="pronto">
+          <div class="kanban-col-head kanban-head-pronto"><span>Pronto</span><span class="kanban-count" id="count-pronto">0</span></div>
+          <div class="kanban-col-total" id="total-pronto">R$ 0,00</div>
+          <div class="kanban-cards" id="cards-pronto"></div>
+        </div>
+        <div class="kanban-col" data-status="em_entrega">
+          <div class="kanban-col-head kanban-head-entrega"><span>Em Entrega</span><span class="kanban-count" id="count-em_entrega">0</span></div>
+          <div class="kanban-col-total" id="total-em_entrega">R$ 0,00</div>
+          <div class="kanban-cards" id="cards-em_entrega"></div>
+        </div>
       </div>
+      <div class="empty-hint" id="orders-empty" style="display:none;">Nenhum pedido em andamento.</div>
     </section>
 
     <!-- ===================== CUPONS ===================== -->
@@ -282,11 +528,70 @@
         <div class="empty-hint" id="coupons-empty" style="display:none;">Nenhum cupom cadastrado.</div>
       </div>
     </section>
+
+    <!-- ===================== CLIENTES ===================== -->
+    <section class="panel" id="panel-clientes">
+      <div class="card">
+        <h2>Configurações de fidelidade</h2>
+        <div class="row-flex" style="align-items:flex-end;">
+          <div class="field" style="margin-bottom:0;min-width:220px;">
+            <label>Recompensar a cada quantos pedidos</label>
+            <input type="number" min="1" id="cli-milestone" placeholder="5">
+          </div>
+          <div class="field" style="margin-bottom:0;min-width:220px;">
+            <label>Alertar cliente sumido após (dias sem pedir)</label>
+            <input type="number" min="1" id="cli-inactive-days" placeholder="14">
+          </div>
+          <button class="btn btn-gold" id="save-loyalty-btn">Salvar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row-flex" style="justify-content:space-between;">
+          <h2 style="margin:0;">🎁 Clientes que bateram a meta</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Cliente</th><th>WhatsApp</th><th>Pedidos</th><th>Total gasto</th></tr></thead>
+            <tbody id="milestone-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-hint" id="milestone-empty" style="display:none;">Ninguém bateu a meta ainda.</div>
+      </div>
+
+      <div class="card">
+        <div class="row-flex" style="justify-content:space-between;">
+          <h2 style="margin:0;">⏰ Clientes sumidos</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Cliente</th><th>WhatsApp</th><th>Último pedido</th><th>Dias sem pedir</th><th>Costuma pedir por volta de</th><th></th></tr></thead>
+            <tbody id="inactive-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-hint" id="inactive-empty" style="display:none;">Nenhum cliente sumido no momento.</div>
+      </div>
+
+      <div class="card">
+        <div class="row-flex" style="justify-content:space-between;">
+          <h2 style="margin:0;">Todos os clientes</h2>
+          <button class="btn btn-outline btn-sm" id="refresh-customers-btn">↻ Atualizar</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Cliente</th><th>WhatsApp</th><th>Pedidos</th><th>Total gasto</th><th>Ticket médio</th><th>Último pedido</th><th>Horário médio</th><th></th></tr></thead>
+            <tbody id="customers-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-hint" id="customers-empty" style="display:none;">Carregando clientes...</div>
+      </div>
+    </section>
   </main>
 </div>
 
 <div class="modal-overlay" id="modal-overlay"></div>
 <div class="toast" id="toast"></div>
+<div class="wa-notify-stack" id="wa-notify-stack"></div>
 
 <script>
 const ADMIN_EMAIL = "luizaugustoxaviercunha@gmail.com";
@@ -311,8 +616,23 @@ async function doLogin(){
   const errEl = document.getElementById("login-error");
   errEl.classList.remove("show");
   if(!password) return;
-  const { data, error } = await window.sb.auth.signInWithPassword({ email: ADMIN_EMAIL, password });
+
+  if(location.protocol === "file:"){
+    errEl.textContent = "Abra esta página por um endereço http:// (servidor local ou publicado) — abrir o arquivo direto (duplo clique) bloqueia a conexão com o banco.";
+    errEl.classList.add("show");
+    return;
+  }
+
+  let data, error;
+  try{
+    ({ data, error } = await window.sb.auth.signInWithPassword({ email: ADMIN_EMAIL, password }));
+  }catch(e){
+    errEl.textContent = "Erro de conexão com o servidor. Verifique sua internet e tente de novo.";
+    errEl.classList.add("show");
+    return;
+  }
   if(error || !data.session){
+    errEl.textContent = "Senha incorreta. Tente novamente.";
     errEl.classList.add("show");
     return;
   }
@@ -327,6 +647,8 @@ function showApp(session){
   loadSettings();
   loadOrders();
   loadCoupons();
+  loadDashboard();
+  subscribeOrderAlerts();
 }
 
 document.getElementById("logout-btn").onclick = async ()=>{
@@ -496,6 +818,10 @@ async function loadSettings(){
   document.getElementById("set-address").value = data.address || "";
   document.getElementById("set-delivery").value = data.delivery_time || "";
   document.getElementById("set-minorder").value = data.min_order || 0;
+  document.getElementById("cli-milestone").value = data.loyalty_every_n_orders || 5;
+  document.getElementById("cli-inactive-days").value = data.inactive_customer_days || 14;
+  renderMilestoneTable();
+  renderInactiveTable();
 }
 
 function renderHoursForm(hours){
@@ -553,52 +879,217 @@ document.getElementById("save-settings-btn").onclick = async ()=>{
   showToast("Configurações salvas!");
 };
 
-/* ===================== PEDIDOS ===================== */
+/* ===================== PEDIDOS (KANBAN) ===================== */
+const KANBAN_STATUSES = ["novo","preparando","pronto","em_entrega"];
+const STATUS_LABEL = { novo:"Em Análise", preparando:"Em Preparo", pronto:"Pronto", em_entrega:"Em Entrega", entregue:"Entregue", cancelado:"Cancelado" };
+const ADVANCE_LABEL = { novo:"Iniciar preparo →", preparando:"Marcar pronto →", pronto:"Saiu p/ entrega →" };
+const NEXT_STATUS = { novo:"preparando", preparando:"pronto", pronto:"em_entrega" };
+
+let ordersCache = [];
+let knownOrderIds = new Set();
+let firstOrdersLoad = true;
+
 async function loadOrders(){
-  const { data, error } = await window.sb.from("orders").select("*").order("created_at", { ascending:false }).limit(100);
+  const { data, error } = await window.sb.from("orders").select("*").in("status", KANBAN_STATUSES).order("created_at", { ascending:true }).limit(200);
   if(error){ showToast("Erro ao carregar pedidos"); return; }
-  renderOrdersTable(data || []);
+  ordersCache = data || [];
+  renderKanbanBoard();
+  knownOrderIds = new Set(ordersCache.map(o=>o.id));
+  firstOrdersLoad = false;
 }
 
-function renderOrdersTable(orders){
-  const tbody = document.getElementById("orders-tbody");
+function orderItemsHTML(o){
+  return (o.items || []).map(it=>{
+    let noteHTML = "";
+    if(it.note){
+      // combo/açaí notes are "sub-item, sub-item · Economia de..." — break
+      // each piece onto its own line instead of one long run-on paragraph
+      const [itemsPart, ...extraParts] = it.note.split(" · ");
+      const subItems = itemsPart.split(", ").map(s=>`<div class="order-card-subitem">${s}</div>`).join("");
+      const extras = extraParts.map(s=>`<div class="order-card-note">${s}</div>`).join("");
+      noteHTML = subItems + extras;
+    }
+    return `<div class="order-card-item"><span class="order-card-item-main">${it.qty}x ${it.name}</span>${noteHTML}</div>`;
+  }).join("");
+}
+
+function renderKanbanBoard(){
   const empty = document.getElementById("orders-empty");
-  if(!orders.length){
-    tbody.innerHTML = "";
-    empty.style.display = "block";
-    return;
-  }
-  empty.style.display = "none";
-  tbody.innerHTML = orders.map(o=>{
+  empty.style.display = ordersCache.length ? "none" : "block";
+
+  KANBAN_STATUSES.forEach(status=>{
+    const inCol = ordersCache.filter(o=>o.status===status);
+    const cardsEl = document.getElementById("cards-"+status);
+    const countEl = document.getElementById("count-"+status);
+    const totalEl = document.getElementById("total-"+status);
+    countEl.textContent = inCol.length;
+    totalEl.textContent = "R$ " + inCol.reduce((s,o)=>s+Number(o.total),0).toFixed(2).replace('.',',');
+
+    cardsEl.innerHTML = inCol.map(o=>{
+      const when = new Date(o.created_at).toLocaleTimeString("pt-BR", { timeZone:"America/Sao_Paulo", hour:"2-digit", minute:"2-digit" });
+      return `
+        <div class="order-card" draggable="true" data-id="${o.id}" data-status="${o.status}">
+          <div class="order-card-top">
+            <span class="order-card-name">${o.customer_name}</span>
+            <span class="order-card-time">${when}</span>
+          </div>
+          <div class="order-card-items">${orderItemsHTML(o)}</div>
+          <div class="order-card-foot">
+            <span class="order-card-total">R$ ${Number(o.total).toFixed(2).replace('.',',')}</span>
+            <span class="order-card-pay">${o.payment_method}</span>
+          </div>
+          ${status==='em_entrega'
+            ? `<button class="order-card-complete" data-id="${o.id}">✓ Concluir (Entregue)</button>`
+            : `<button class="order-card-advance" data-id="${o.id}" data-next="${NEXT_STATUS[status]}">${ADVANCE_LABEL[status]}</button>`
+          }
+          <button class="order-card-cancel" data-id="${o.id}">Cancelar pedido</button>
+        </div>
+      `;
+    }).join("");
+  });
+
+  wireKanbanCards();
+  wireKanbanDragDrop();
+}
+
+function wireKanbanCards(){
+  document.querySelectorAll(".order-card-advance").forEach(btn=>{
+    btn.onclick = ()=> updateOrderStatus(btn.dataset.id, btn.dataset.next);
+  });
+  document.querySelectorAll(".order-card-complete").forEach(btn=>{
+    btn.onclick = ()=> updateOrderStatus(btn.dataset.id, "entregue");
+  });
+  document.querySelectorAll(".order-card-cancel").forEach(btn=>{
+    btn.onclick = ()=>{
+      if(!confirm("Cancelar este pedido?")) return;
+      updateOrderStatus(btn.dataset.id, "cancelado");
+    };
+  });
+}
+
+function wireKanbanDragDrop(){
+  document.querySelectorAll(".order-card").forEach(card=>{
+    card.ondragstart = (e)=>{
+      card.classList.add("dragging");
+      e.dataTransfer.setData("text/plain", card.dataset.id);
+    };
+    card.ondragend = ()=> card.classList.remove("dragging");
+  });
+  document.querySelectorAll(".kanban-col").forEach(col=>{
+    col.ondragover = (e)=>{ e.preventDefault(); col.classList.add("drag-over"); };
+    col.ondragleave = ()=> col.classList.remove("drag-over");
+    col.ondrop = (e)=>{
+      e.preventDefault();
+      col.classList.remove("drag-over");
+      const id = e.dataTransfer.getData("text/plain");
+      updateOrderStatus(id, col.dataset.status);
+    };
+  });
+}
+
+const STATUS_NOTIFY_MSG = {
+  preparando: (n)=> `Oi ${n}! Seu pedido já está sendo preparado com carinho aqui na Bellucci 👨‍🍳`,
+  pronto:     (n)=> `Oi ${n}! Seu pedido ficou pronto e já vai sair para entrega 🎉`,
+  em_entrega: (n)=> `Oi ${n}! Seu pedido saiu para entrega e já está a caminho 🛵💨`
+};
+
+function notifyCustomerStatus(order, status){
+  const build = STATUS_NOTIFY_MSG[status];
+  if(!build || !order || !order.customer_phone) return;
+  const digits = order.customer_phone.replace(/\D/g,"");
+  const firstName = (order.customer_name || "").trim().split(" ")[0] || order.customer_name;
+  const msg = build(firstName);
+  const link = `https://wa.me/55${digits}?text=${encodeURIComponent(msg)}`;
+
+  // real <a target="_blank"> the owner clicks — window.open() from here gets
+  // silently blocked by the browser's popup blocker on plenty of setups
+  const stack = document.getElementById("wa-notify-stack");
+  const card = document.createElement("div");
+  card.className = "wa-notify";
+  card.innerHTML = `
+    <div class="wa-notify-text">📲 Avisar <b>${order.customer_name}</b> — "${STATUS_LABEL[status]}"?</div>
+    <div class="wa-notify-actions">
+      <a class="btn btn-gold btn-sm" href="${link}" target="_blank" rel="noopener">Enviar WhatsApp</a>
+      <button class="wa-notify-dismiss" type="button">Agora não</button>
+    </div>
+  `;
+  stack.appendChild(card);
+  const dismiss = ()=> card.remove();
+  card.querySelector(".wa-notify-dismiss").onclick = dismiss;
+  card.querySelector("a").addEventListener("click", ()=> setTimeout(dismiss, 300));
+  setTimeout(dismiss, 30000);
+}
+
+async function updateOrderStatus(id, status){
+  const order = ordersCache.find(o=>o.id===id);
+  notifyCustomerStatus(order, status);
+
+  const { error } = await window.sb.from("orders").update({ status }).eq("id", id);
+  if(error){ showToast("Erro ao atualizar pedido"); return; }
+  if(status === "entregue") showToast("Pedido concluído!");
+  else if(status === "cancelado") showToast("Pedido cancelado.");
+  else showToast(`Movido para "${STATUS_LABEL[status] || status}"`);
+  loadOrders();
+}
+
+document.getElementById("history-orders-btn").onclick = openOrderHistory;
+
+async function openOrderHistory(){
+  const { data, error } = await window.sb.from("orders").select("*").in("status", ["entregue","cancelado"]).order("created_at", { ascending:false }).limit(100);
+  if(error){ showToast("Erro ao carregar histórico"); return; }
+  const rows = (data || []).map(o=>{
     const when = new Date(o.created_at).toLocaleString("pt-BR", { timeZone:"America/Sao_Paulo", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
     const itemsSummary = (o.items || []).map(it=>`${it.qty}x ${it.name}`).join(", ");
     return `
       <tr>
         <td>${when}</td>
         <td>${o.customer_name}</td>
-        <td title="${itemsSummary.replace(/"/g,'&quot;')}">${itemsSummary.length>40 ? itemsSummary.slice(0,40)+"…" : itemsSummary}</td>
+        <td title="${itemsSummary.replace(/"/g,'&quot;')}">${itemsSummary.length>34 ? itemsSummary.slice(0,34)+"…" : itemsSummary}</td>
         <td>R$ ${Number(o.total).toFixed(2).replace('.',',')}</td>
-        <td>${o.payment_method}</td>
-        <td>${o.coupon_code || "—"}</td>
-        <td>
-          <select class="status-select" data-order="${o.id}">
-            <option value="novo" ${o.status==='novo'?'selected':''}>Novo</option>
-            <option value="preparando" ${o.status==='preparando'?'selected':''}>Preparando</option>
-            <option value="entregue" ${o.status==='entregue'?'selected':''}>Entregue</option>
-            <option value="cancelado" ${o.status==='cancelado'?'selected':''}>Cancelado</option>
-          </select>
-        </td>
+        <td><span class="pill ${o.status==='entregue' ? 'pill-active' : 'pill-inactive'}">${STATUS_LABEL[o.status]}</span></td>
       </tr>
     `;
   }).join("");
+  openModal(`
+    <h3>Histórico de pedidos</h3>
+    <div class="table-wrap" style="max-height:60vh;">
+      <table>
+        <thead><tr><th>Quando</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="5" class="empty-hint">Nenhum pedido concluído ainda.</td></tr>`}</tbody>
+      </table>
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" id="history-close">Fechar</button></div>
+  `);
+  document.getElementById("history-close").onclick = closeModal;
+}
 
-  tbody.querySelectorAll(".status-select").forEach(sel=>{
-    sel.onchange = async ()=>{
-      const { error } = await window.sb.from("orders").update({ status: sel.value }).eq("id", sel.dataset.order);
-      if(error){ showToast("Erro ao atualizar status"); return; }
-      showToast("Status atualizado!");
-    };
-  });
+/* ---------- alerta sonoro de pedido novo ---------- */
+function playNewOrderBeep(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.18].forEach(delay=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.001, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.32);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.34);
+    });
+  }catch(e){ /* audio unavailable, fail silently */ }
+}
+
+function subscribeOrderAlerts(){
+  window.sb.channel("orders-realtime")
+    .on("postgres_changes", { event:"INSERT", schema:"public", table:"orders" }, ()=>{
+      playNewOrderBeep();
+      showToast("🔔 Novo pedido recebido!");
+      loadOrders();
+    })
+    .subscribe();
 }
 
 document.getElementById("refresh-orders-btn").onclick = loadOrders;
@@ -695,6 +1186,337 @@ async function saveCoupon(){
   closeModal();
   showToast("Cupom criado!");
   loadCoupons();
+}
+
+/* ===================== CLIENTES ===================== */
+let customersCache = [];
+
+function formatPhoneDisplay(phone){
+  const d = (phone || "").replace(/\D/g,"");
+  if(d.length < 10) return phone || "—";
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+}
+
+function waReactivateLink(phone, hourLabel){
+  const d = (phone || "").replace(/\D/g,"");
+  const msg = `Oi! Sentimos sua falta por aqui na Bellucci 💛 Sei que você costuma pedir por volta das ${hourLabel} — bora matar a vontade hoje?`;
+  return `https://wa.me/55${d}?text=${encodeURIComponent(msg)}`;
+}
+
+function formatHourLabel(avgHourDecimal){
+  if(avgHourDecimal === null) return "—";
+  const h = Math.floor(avgHourDecimal);
+  const m = Math.round((avgHourDecimal - h) * 60);
+  return `${String(h).padStart(2,"0")}h${String(m).padStart(2,"0")}`;
+}
+
+function customerTier(count){
+  if(count >= 20) return "diamante";
+  if(count >= 10) return "ouro";
+  if(count >= 5) return "prata";
+  return "bronze";
+}
+const TIER_LABEL = { bronze:"Bronze", prata:"Prata", ouro:"Ouro", diamante:"Diamante" };
+const TIER_EMOJI = { bronze:"🥉", prata:"🥈", ouro:"🥇", diamante:"💎" };
+
+function pickFavorite(orders){
+  const tally = new Map();
+  orders.forEach(o=>{
+    (o.items || []).forEach(it=>{
+      tally.set(it.name, (tally.get(it.name) || 0) + Number(it.qty || 1));
+    });
+  });
+  let best = null, bestQty = 0;
+  tally.forEach((qty, name)=>{ if(qty > bestQty){ bestQty = qty; best = name; } });
+  return best ? { name: best, qty: bestQty } : null;
+}
+
+async function loadCustomers(){
+  const { data, error } = await window.sb
+    .from("orders")
+    .select("customer_name, customer_phone, total, created_at, items, status")
+    .not("customer_phone", "is", null)
+    .neq("status", "cancelado")
+    .order("created_at", { ascending:true });
+
+  if(error){ showToast("Erro ao carregar clientes"); return; }
+
+  const byPhone = new Map();
+  (data || []).forEach(o=>{
+    const key = o.customer_phone;
+    if(!byPhone.has(key)) byPhone.set(key, []);
+    byPhone.get(key).push(o);
+  });
+
+  customersCache = [...byPhone.entries()].map(([phone, orders])=>{
+    const name = orders[orders.length-1].customer_name;
+    const count = orders.length;
+    const totalSpent = orders.reduce((s,o)=>s+Number(o.total),0);
+    const firstOrder = orders[0].created_at;
+    const lastOrder = orders[orders.length-1].created_at;
+    const daysSince = Math.floor((Date.now() - new Date(lastOrder).getTime()) / 86400000);
+    const hours = orders.map(o=>{
+      const parts = new Date(o.created_at).toLocaleString("en-US", { timeZone:"America/Sao_Paulo", hour12:false, hour:"2-digit", minute:"2-digit" }).split(":");
+      return Number(parts[0]) + Number(parts[1])/60;
+    });
+    const avgHour = hours.reduce((s,h)=>s+h,0) / hours.length;
+    const favorite = pickFavorite(orders);
+    return { phone, name, count, totalSpent, firstOrder, lastOrder, daysSince, avgHour, favorite, tier: customerTier(count) };
+  }).sort((a,b)=> b.totalSpent - a.totalSpent);
+
+  renderCustomersTable();
+  renderMilestoneTable();
+  renderInactiveTable();
+}
+
+/* ---------- carta do cliente (gamificado) ---------- */
+function openPlayerCard(c){
+  const n = currentSettings ? currentSettings.loyalty_every_n_orders : 5;
+  const toNext = n - (c.count % n === 0 ? 0 : c.count % n);
+  const xpPct = Math.round(((c.count % n) / n) * 100) || (c.count % n === 0 ? 100 : 0);
+  const initials = c.name.trim().split(" ").filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("");
+
+  openModal(`
+    <div class="player-card tier-${c.tier}">
+      <div class="player-card-inner">
+        <div class="player-card-badge">${TIER_EMOJI[c.tier]} ${TIER_LABEL[c.tier]}</div>
+        <div class="player-card-avatar">${initials || "?"}</div>
+        <div class="player-card-name">${c.name}</div>
+        <div class="player-card-phone">${formatPhoneDisplay(c.phone)}</div>
+        <div class="player-card-stats">
+          <div class="pcs-item"><div class="pcs-label">Pedidos</div><div class="pcs-value">${c.count}</div></div>
+          <div class="pcs-item"><div class="pcs-label">Total gasto</div><div class="pcs-value">R$ ${c.totalSpent.toFixed(2).replace('.',',')}</div></div>
+          <div class="pcs-item"><div class="pcs-label">Ticket médio</div><div class="pcs-value">R$ ${(c.totalSpent/c.count).toFixed(2).replace('.',',')}</div></div>
+          <div class="pcs-item"><div class="pcs-label">Cliente desde</div><div class="pcs-value">${new Date(c.firstOrder).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})}</div></div>
+          <div class="pcs-item"><div class="pcs-label">Última compra</div><div class="pcs-value">${c.daysSince===0 ? "Hoje" : c.daysSince+"d atrás"}</div></div>
+          <div class="pcs-item"><div class="pcs-label">Costuma pedir</div><div class="pcs-value">${formatHourLabel(c.avgHour)}</div></div>
+        </div>
+        ${c.favorite ? `
+          <div class="player-card-fav">
+            <div class="player-card-fav-label">🍇 Produto favorito</div>
+            <div class="player-card-fav-value">${c.favorite.name} <span style="color:rgba(244,236,218,.4);font-weight:400;">(${c.favorite.qty}x)</span></div>
+          </div>
+        ` : ""}
+        <div class="player-card-xp-label"><span>Progresso pra próxima recompensa</span><span>${c.count % n}/${n}</span></div>
+        <div class="player-card-xp-bar"><div class="player-card-xp-fill" style="width:${xpPct}%;"></div></div>
+      </div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" id="player-card-close">Fechar</button></div>
+  `);
+  document.getElementById("player-card-close").onclick = closeModal;
+}
+
+function renderCustomersTable(){
+  const tbody = document.getElementById("customers-tbody");
+  const empty = document.getElementById("customers-empty");
+  if(!customersCache.length){
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    empty.textContent = "Nenhum cliente com WhatsApp registrado ainda.";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = customersCache.map((c,i)=>`
+    <tr>
+      <td>${TIER_EMOJI[c.tier]} ${c.name}</td>
+      <td>${formatPhoneDisplay(c.phone)}</td>
+      <td>${c.count}</td>
+      <td>R$ ${c.totalSpent.toFixed(2).replace('.',',')}</td>
+      <td>R$ ${(c.totalSpent/c.count).toFixed(2).replace('.',',')}</td>
+      <td>${new Date(c.lastOrder).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})} <span style="color:rgba(244,236,218,.4);">(${c.daysSince}d)</span></td>
+      <td>${formatHourLabel(c.avgHour)}</td>
+      <td><button class="btn btn-outline btn-sm" data-card-idx="${i}">🃏 Ver carta</button></td>
+    </tr>
+  `).join("");
+  tbody.querySelectorAll("[data-card-idx]").forEach(btn=>{
+    btn.onclick = ()=> openPlayerCard(customersCache[Number(btn.dataset.cardIdx)]);
+  });
+}
+
+function renderMilestoneTable(){
+  const n = currentSettings ? currentSettings.loyalty_every_n_orders : 5;
+  const hit = customersCache.filter(c=> c.count > 0 && c.count % n === 0);
+  const tbody = document.getElementById("milestone-tbody");
+  const empty = document.getElementById("milestone-empty");
+  if(!hit.length){
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = hit.map(c=>`
+    <tr>
+      <td>${c.name}</td>
+      <td>${formatPhoneDisplay(c.phone)}</td>
+      <td>${c.count}</td>
+      <td>R$ ${c.totalSpent.toFixed(2).replace('.',',')}</td>
+    </tr>
+  `).join("");
+}
+
+function renderInactiveTable(){
+  const days = currentSettings ? currentSettings.inactive_customer_days : 14;
+  const gone = customersCache.filter(c=> c.daysSince >= days).sort((a,b)=> b.daysSince - a.daysSince);
+  const tbody = document.getElementById("inactive-tbody");
+  const empty = document.getElementById("inactive-empty");
+  if(!gone.length){
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = gone.map(c=>{
+    const hourLabel = formatHourLabel(c.avgHour);
+    return `
+    <tr>
+      <td>${c.name}</td>
+      <td>${formatPhoneDisplay(c.phone)}</td>
+      <td>${new Date(c.lastOrder).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})}</td>
+      <td>${c.daysSince} dias</td>
+      <td>${hourLabel}</td>
+      <td><a class="btn btn-gold btn-sm" href="${waReactivateLink(c.phone, hourLabel)}" target="_blank" rel="noopener">Mandar mensagem</a></td>
+    </tr>
+  `;
+  }).join("");
+}
+
+document.getElementById("refresh-customers-btn").onclick = loadCustomers;
+
+document.getElementById("save-loyalty-btn").onclick = async ()=>{
+  const loyalty_every_n_orders = parseInt(document.getElementById("cli-milestone").value, 10) || 5;
+  const inactive_customer_days = parseInt(document.getElementById("cli-inactive-days").value, 10) || 14;
+  const { error } = await window.sb.from("settings").update({ loyalty_every_n_orders, inactive_customer_days }).eq("id", true);
+  if(error){ showToast("Erro ao salvar: " + error.message); return; }
+  currentSettings = { ...currentSettings, loyalty_every_n_orders, inactive_customer_days };
+  showToast("Configurações de fidelidade salvas!");
+  renderMilestoneTable();
+  renderInactiveTable();
+};
+
+/* ===================== DASHBOARD ===================== */
+function localDateKey(dateStr){
+  // "YYYY-MM-DD" in America/Sao_Paulo, used to bucket orders by local day
+  return new Date(dateStr).toLocaleDateString("en-CA", { timeZone:"America/Sao_Paulo" });
+}
+function localMonthKey(dateStr){
+  return localDateKey(dateStr).slice(0,7); // "YYYY-MM"
+}
+
+async function loadDashboard(){
+  await loadCustomers();
+
+  const { data, error } = await window.sb
+    .from("orders")
+    .select("total, created_at, items, customer_phone, status")
+    .neq("status", "cancelado")
+    .order("created_at", { ascending:true });
+  if(error){ showToast("Erro ao carregar painel"); return; }
+
+  const orders = data || [];
+  const todayKey = localDateKey(new Date().toISOString());
+  const monthKey = todayKey.slice(0,7);
+
+  const todayOrders = orders.filter(o=> localDateKey(o.created_at) === todayKey);
+  const monthOrders = orders.filter(o=> localMonthKey(o.created_at) === monthKey);
+
+  const revenueToday = todayOrders.reduce((s,o)=>s+Number(o.total),0);
+  const revenueMonth = monthOrders.reduce((s,o)=>s+Number(o.total),0);
+
+  document.getElementById("dash-revenue-today").textContent = "R$ " + revenueToday.toFixed(2).replace('.',',');
+  document.getElementById("dash-orders-today").textContent = todayOrders.length;
+  document.getElementById("dash-avg-today").textContent = "R$ " + (todayOrders.length ? revenueToday/todayOrders.length : 0).toFixed(2).replace('.',',');
+
+  document.getElementById("dash-revenue-month").textContent = "R$ " + revenueMonth.toFixed(2).replace('.',',');
+  document.getElementById("dash-orders-month").textContent = monthOrders.length;
+  document.getElementById("dash-avg-month").textContent = "R$ " + (monthOrders.length ? revenueMonth/monthOrders.length : 0).toFixed(2).replace('.',',');
+  document.getElementById("dash-active-customers").textContent = new Set(monthOrders.map(o=>o.customer_phone).filter(Boolean)).size;
+
+  // "novo cliente hoje" = phone whose very first order ever falls on today
+  const firstOrderByPhone = new Map();
+  orders.forEach(o=>{
+    if(!o.customer_phone) return;
+    if(!firstOrderByPhone.has(o.customer_phone)) firstOrderByPhone.set(o.customer_phone, o.created_at);
+  });
+  let newToday = 0;
+  firstOrderByPhone.forEach(firstDate=>{ if(localDateKey(firstDate) === todayKey) newToday++; });
+  document.getElementById("dash-newcustomers-today").textContent = newToday;
+
+  renderBarChart(orders, todayKey);
+  renderTopProducts(orders);
+  renderTopCustomers();
+  renderStatusSnapshot();
+}
+
+function renderBarChart(orders, todayKey){
+  const days = [];
+  for(let i=6;i>=0;i--){
+    const d = new Date();
+    d.setDate(d.getDate()-i);
+    days.push(d.toLocaleDateString("en-CA", { timeZone:"America/Sao_Paulo" }));
+  }
+  const totals = days.map(key=> orders.filter(o=> localDateKey(o.created_at)===key).reduce((s,o)=>s+Number(o.total),0));
+  const max = Math.max(1, ...totals);
+  const el = document.getElementById("dash-bar-chart");
+  el.innerHTML = days.map((key,i)=>{
+    const [y,m,d] = key.split("-");
+    const label = key === todayKey ? "Hoje" : `${d}/${m}`;
+    const h = Math.round((totals[i]/max)*100);
+    return `
+      <div class="bar-col">
+        <div class="bar-val">${totals[i]>0 ? 'R$'+totals[i].toFixed(0) : ''}</div>
+        <div class="bar-fill" style="height:${h}%;"></div>
+        <div class="bar-label">${label}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderTopProducts(orders){
+  const tally = new Map();
+  orders.forEach(o=>{
+    (o.items || []).forEach(it=>{
+      tally.set(it.name, (tally.get(it.name) || 0) + Number(it.qty || 1));
+    });
+  });
+  const top = [...tally.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const el = document.getElementById("dash-top-products");
+  if(!top.length){ el.innerHTML = `<div class="empty-hint">Sem vendas ainda.</div>`; return; }
+  el.innerHTML = top.map(([name,qty],i)=>`
+    <div class="rank-row">
+      <div class="rank-pos">${i+1}</div>
+      <div class="rank-name">${name}</div>
+      <div class="rank-value">${qty}x</div>
+    </div>
+  `).join("");
+}
+
+function renderTopCustomers(){
+  const top = customersCache.slice(0,5);
+  const el = document.getElementById("dash-top-customers");
+  if(!top.length){ el.innerHTML = `<div class="empty-hint">Sem clientes ainda.</div>`; return; }
+  el.innerHTML = top.map((c,i)=>`
+    <div class="rank-row clickable" data-top-idx="${i}">
+      <div class="rank-pos">${i+1}</div>
+      <div class="rank-name">${TIER_EMOJI[c.tier]} ${c.name}<div class="rank-sub">${c.count} pedidos</div></div>
+      <div class="rank-value">R$ ${c.totalSpent.toFixed(2).replace('.',',')}</div>
+    </div>
+  `).join("");
+  el.querySelectorAll("[data-top-idx]").forEach(row=>{
+    row.onclick = ()=> openPlayerCard(top[Number(row.dataset.topIdx)]);
+  });
+}
+
+async function renderStatusSnapshot(){
+  const { data } = await window.sb.from("orders").select("status").in("status", KANBAN_STATUSES);
+  const counts = { novo:0, preparando:0, pronto:0, em_entrega:0 };
+  (data || []).forEach(o=>{ if(counts[o.status] !== undefined) counts[o.status]++; });
+  const el = document.getElementById("dash-status-snapshot");
+  el.innerHTML = KANBAN_STATUSES.map(s=>`
+    <div class="status-chip">
+      <div class="chip-num">${counts[s]}</div>
+      <div class="chip-label">${STATUS_LABEL[s]}</div>
+    </div>
+  `).join("");
 }
 
 /* ===================== INIT ===================== */

@@ -667,6 +667,26 @@
   }
   .roleta-gate-btn:disabled{background:rgba(244,236,218,.12);color:rgba(244,236,218,.4);cursor:default;}
 
+  .gap-suggestion{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:rgba(201,162,74,.08);border:1px dashed rgba(201,162,74,.35);border-radius:12px;
+    padding:10px 12px;margin-bottom:12px;text-align:left;
+  }
+  .gap-suggestion-info{display:flex;flex-direction:column;}
+  .gap-suggestion-name{font-size:12.5px;color:var(--cream);}
+  .gap-suggestion-price{font-size:11px;color:var(--gold-light);}
+  .gap-suggestion-btn{
+    background:var(--gold);color:var(--black);border:none;
+    padding:8px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
+  }
+  .gap-suggestion-btn:hover{background:var(--gold-light);}
+
+  .checkout-item-edit{
+    background:none;border:none;color:var(--gold-light);
+    font-size:11px;padding:0;margin-left:6px;cursor:pointer;text-decoration:underline;
+  }
+  .checkout-item-edit:hover{color:var(--gold);}
+
   .roleta-wheel-wrap{position:relative;width:210px;height:210px;margin:16px auto 0;}
   .roleta-pointer{
     position:absolute;top:-6px;left:50%;transform:translateX(-50%);
@@ -1117,7 +1137,7 @@ const ROLETA_PRIZES = [
   {label:"Refri",        value:"Refrigerante grátis",              code:"GIROBEBIDA"},
   {label:"Picolé",       value:"Picolé grátis",                    code:"GIROPICOLE"},
   {label:"Pipoca",       value:"Pipoca Caramelizada grátis",       code:"GIROPIPOCA"},
-  {label:"Sorvete",      value:"Bola de sorvete clássico grátis",  code:"GIROSORVETE"},
+  {label:"Sorvete",      value:"Sorvete Clássico grátis",  code:"GIROSORVETE"},
   {label:"10% OFF",      value:"10% de desconto no pedido",        code:"GIRO10"}
 ];
 
@@ -1185,19 +1205,51 @@ function buildRoletaGateHTML(total){
   }
   const missing = ROLETA_MIN - total;
   const pct = Math.max(4, Math.min(100, (total/ROLETA_MIN)*100));
+  const suggestion = suggestGapProduct(missing);
   return `
     <div class="roleta-gate" id="roleta-gate">
       <div class="roleta-gate-title">🎉 Roleta Bellucci</div>
       <div class="roleta-gate-sub">Faltam <b>R$ ${missing.toFixed(2).replace('.',',')}</b> no seu pedido para desbloquear a roleta com prêmio garantido!</div>
       <div class="roleta-progress"><div class="roleta-progress-fill" style="width:${pct}%"></div></div>
+      ${suggestion ? `
+        <div class="gap-suggestion">
+          <div class="gap-suggestion-info">
+            <span class="gap-suggestion-name">${suggestion.name}</span>
+            <span class="gap-suggestion-price">+R$ ${effectivePrice(suggestion).toFixed(2).replace('.',',')} — completa sua meta</span>
+          </div>
+          <button type="button" class="gap-suggestion-btn" id="gap-suggestion-btn" data-id="${suggestion.id}">Adicionar</button>
+        </div>
+      ` : ""}
       <button class="roleta-gate-btn" disabled>Roleta bloqueada 🔒</button>
     </div>
   `;
 }
 
+// picks the cheapest simple (non-customizable) product whose price covers the
+// remaining gap to ROLETA_MIN, so one click is enough to unlock the roleta
+function suggestGapProduct(missing){
+  const candidates = PRODUCTS
+    .filter(p=>!p.customizable)
+    .map(p=>({p, price: effectivePrice(p)}));
+  const covering = candidates.filter(x=>x.price >= missing - 0.001).sort((a,b)=>a.price-b.price);
+  if(covering.length) return covering[0].p;
+  const byPriceDesc = candidates.sort((a,b)=>b.price-a.price);
+  return byPriceDesc.length ? byPriceDesc[0].p : null;
+}
+
 function wireRoletaGate(){
   const btn = document.getElementById("roleta-spin-trigger");
   if(btn) btn.onclick = revealAndSpinRoleta;
+  const gapBtn = document.getElementById("gap-suggestion-btn");
+  if(gapBtn){
+    gapBtn.onclick = ()=>{
+      const product = PRODUCTS.find(p=>p.id===gapBtn.dataset.id);
+      if(!product) return;
+      addSimple(product);
+      refreshAllQty();
+      renderCheckoutSummary();
+    };
+  }
 }
 
 function revealAndSpinRoleta(){
@@ -1568,10 +1620,57 @@ document.getElementById("checkout-btn").addEventListener("click", ()=>{
 });
 
 /* ===================== MODAL HELPERS ===================== */
+let checkoutReturnSnapshot = null;
+
 function closeModal(){
+  if(checkoutReturnSnapshot){
+    const snap = checkoutReturnSnapshot;
+    checkoutReturnSnapshot = null;
+    modalState = null;
+    reopenCheckoutWithSnapshot(snap);
+    return;
+  }
   document.getElementById("modal-overlay").classList.remove("show");
   document.body.style.overflow = "";
   modalState = null;
+}
+
+// used when the customer edits a combo/açaí line from inside the checkout
+// modal — captures the in-progress form so closing the edit modal returns
+// straight to checkout instead of dumping them back on the page
+function editCartLineFromCheckout(key){
+  checkoutReturnSnapshot = {
+    name: document.getElementById("ck-name") ? document.getElementById("ck-name").value : "",
+    phone: document.getElementById("ck-phone") ? document.getElementById("ck-phone").value : "",
+    address: document.getElementById("ck-address") ? document.getElementById("ck-address").value : "",
+    payment: checkoutPayment,
+    troco: document.getElementById("ck-troco") ? document.getElementById("ck-troco").value : "",
+    appliedCoupon: appliedCoupon ? {...appliedCoupon} : null,
+    couponCode: document.getElementById("ck-coupon") ? document.getElementById("ck-coupon").value : ""
+  };
+  editCartLine(key);
+}
+
+function reopenCheckoutWithSnapshot(snap){
+  openCheckoutModal();
+  const nameEl = document.getElementById("ck-name");
+  const phoneEl = document.getElementById("ck-phone");
+  const addrEl = document.getElementById("ck-address");
+  if(nameEl) nameEl.value = snap.name;
+  if(phoneEl) phoneEl.value = snap.phone;
+  if(addrEl) addrEl.value = snap.address;
+  if(snap.appliedCoupon){
+    appliedCoupon = snap.appliedCoupon;
+    const couponEl = document.getElementById("ck-coupon");
+    if(couponEl) couponEl.value = snap.couponCode;
+    renderCheckoutSummary();
+  }
+  if(snap.payment){
+    const opt = document.querySelector(`.payment-opt[data-method="${snap.payment}"]`);
+    if(opt) opt.click();
+  }
+  const trocoEl = document.getElementById("ck-troco");
+  if(trocoEl && snap.troco) trocoEl.value = snap.troco;
 }
 
 /* ===================== AÇAÍ MODAL ===================== */
@@ -1719,18 +1818,52 @@ function openCheckoutModal(){
   wireCheckoutEvents();
   overlay.classList.add("show");
   document.body.style.overflow = "hidden";
+
+  try{
+    const saved = JSON.parse(localStorage.getItem("bellucci_customer") || "null");
+    if(saved){
+      const nameEl = document.getElementById("ck-name");
+      const phoneEl = document.getElementById("ck-phone");
+      const addrEl = document.getElementById("ck-address");
+      if(nameEl && saved.name) nameEl.value = saved.name;
+      if(phoneEl && saved.phone) phoneEl.value = saved.phone;
+      if(addrEl && saved.address) addrEl.value = saved.address;
+    }
+  }catch(e){}
+
   const {total} = checkoutTotals();
   trackEvent('begin_checkout', {currency:"BRL", value:total});
 }
 
-function buildCheckoutHTML(){
-  const {total} = checkoutTotals();
-  const itemsHtml = cart.map(l=>`
+function formatPhoneInput(el){
+  let digits = el.value.replace(/\D/g,"").slice(0,11);
+  let out = digits;
+  if(digits.length > 2) out = `(${digits.slice(0,2)}) ${digits.slice(2)}`;
+  if(digits.length > 7) out = `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+  el.value = out;
+}
+
+function buildCheckoutItemsHTML(){
+  return cart.map(l=>{
+    const product = PRODUCTS.find(p=>p.id===l.id);
+    const editable = l.id === "combo-custom" || (product && product.customizable);
+    return `
     <div class="checkout-summary-row">
-      <span>${l.qty}x ${l.name}</span>
+      <span>${l.qty}x ${l.name}${editable ? ` <button type="button" class="checkout-item-edit" data-key="${l.key}">✎ editar</button>` : ''}</span>
       <span>R$ ${(l.unitPrice*l.qty).toFixed(2).replace('.',',')}</span>
     </div>
-  `).join("");
+  `;
+  }).join("");
+}
+
+function wireCheckoutItemEdits(){
+  document.querySelectorAll(".checkout-item-edit").forEach(btn=>{
+    btn.onclick = (e)=>{ e.stopPropagation(); editCartLineFromCheckout(btn.dataset.key); };
+  });
+}
+
+function buildCheckoutHTML(){
+  const {total} = checkoutTotals();
   return `
     <div class="modal-sheet" role="dialog" aria-modal="true">
       <button class="modal-close" id="modal-close" aria-label="Fechar">✕</button>
@@ -1738,7 +1871,7 @@ function buildCheckoutHTML(){
       <div class="modal-sub">Preencha seus dados para enviarmos o pedido certinho pelo WhatsApp.</div>
 
       <div class="checkout-summary">
-        ${itemsHtml}
+        <div id="checkout-items">${buildCheckoutItemsHTML()}</div>
         <div class="checkout-summary-row" id="coupon-row" style="display:none;"></div>
         <div class="checkout-summary-total">
           <span>Total</span>
@@ -1762,6 +1895,12 @@ function buildCheckoutHTML(){
         <label>Nome completo</label>
         <input type="text" id="ck-name" placeholder="Seu nome">
         <div class="field-error" id="ck-name-error">Informe seu nome</div>
+      </div>
+
+      <div class="form-group">
+        <label>WhatsApp</label>
+        <input type="tel" id="ck-phone" inputmode="numeric" placeholder="(13) 99999-9999">
+        <div class="field-error" id="ck-phone-error">Informe um WhatsApp válido</div>
       </div>
 
       <div class="form-group">
@@ -1792,6 +1931,11 @@ function buildCheckoutHTML(){
 
 function renderCheckoutSummary(){
   const {discount, total} = checkoutTotals();
+  const itemsEl = document.getElementById("checkout-items");
+  if(itemsEl){
+    itemsEl.innerHTML = buildCheckoutItemsHTML();
+    wireCheckoutItemEdits();
+  }
   const couponRow = document.getElementById("coupon-row");
   if(couponRow){
     couponRow.style.display = appliedCoupon ? "flex" : "none";
@@ -1811,6 +1955,9 @@ function wireCheckoutEvents(){
   document.getElementById("modal-close").onclick = closeModal;
   document.getElementById("modal-overlay").onclick = (e)=>{ if(e.target.id==="modal-overlay") closeModal(); };
 
+  const phoneEl = document.getElementById("ck-phone");
+  if(phoneEl) phoneEl.addEventListener("input", ()=> formatPhoneInput(phoneEl));
+
   document.querySelectorAll(".payment-opt").forEach(opt=>{
     opt.onclick = ()=>{
       checkoutPayment = opt.dataset.method;
@@ -1828,12 +1975,14 @@ function wireCheckoutEvents(){
 
   document.getElementById("modal-confirm").onclick = submitCheckout;
   wireRoletaGate();
+  wireCheckoutItemEdits();
 }
 
-async function insertOrderRecord({name, address, payment, troco, total}){
+async function insertOrderRecord({name, phone, address, payment, troco, total}){
   try{
     await window.sb.from("orders").insert({
       customer_name: name,
+      customer_phone: phone,
       address: address,
       payment_method: payment,
       troco: troco || null,
@@ -1849,6 +1998,8 @@ async function insertOrderRecord({name, address, payment, troco, total}){
 
 async function submitCheckout(){
   const name = document.getElementById("ck-name").value.trim();
+  const phone = document.getElementById("ck-phone").value.trim();
+  const phoneDigits = phone.replace(/\D/g,"");
   const address = document.getElementById("ck-address").value.trim();
   const trocoEl = document.getElementById("ck-troco");
   const troco = trocoEl ? trocoEl.value.trim() : "";
@@ -1856,6 +2007,8 @@ async function submitCheckout(){
   let valid = true;
   document.getElementById("ck-name-error").classList.toggle("show", !name);
   if(!name) valid = false;
+  document.getElementById("ck-phone-error").classList.toggle("show", phoneDigits.length < 10);
+  if(phoneDigits.length < 10) valid = false;
   document.getElementById("ck-address-error").classList.toggle("show", !address);
   if(!address) valid = false;
   document.getElementById("ck-payment-error").classList.toggle("show", !checkoutPayment);
@@ -1888,10 +2041,12 @@ async function submitCheckout(){
     items: cart.map(l=>({item_id:l.id, item_name:l.name, price:l.unitPrice, quantity:l.qty}))
   });
 
-  await insertOrderRecord({name, address, payment: checkoutPayment, troco, total});
+  await insertOrderRecord({name, phone: phoneDigits, address, payment: checkoutPayment, troco, total});
   if(appliedCoupon){
     try{ await window.sb.rpc('redeem_coupon', {p_code: appliedCoupon.code}); }catch(e){}
   }
+
+  try{ localStorage.setItem("bellucci_customer", JSON.stringify({name, phone, address})); }catch(e){}
 
   const msg = encodeURIComponent(lines.join("\n"));
   window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, "_blank");
