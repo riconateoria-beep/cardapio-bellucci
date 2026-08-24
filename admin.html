@@ -596,7 +596,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Cliente</th><th>WhatsApp</th><th>Pedidos</th><th>Total gasto</th><th>Ticket médio</th><th>Último pedido</th><th>Horário médio</th><th></th><th></th></tr></thead>
+            <thead><tr><th>Cliente</th><th>WhatsApp</th><th>Pedidos</th><th>Total gasto</th><th>Ticket médio</th><th>Último pedido</th><th>Horário médio</th><th></th><th></th><th></th></tr></thead>
             <tbody id="customers-tbody"></tbody>
           </table>
         </div>
@@ -1467,6 +1467,67 @@ async function hideCustomer(phone, name){
   loadCustomers();
 }
 
+/* ---------- compras de um cliente (excluir/restaurar da contagem) ---------- */
+async function openCustomerPurchases(phone, name){
+  const { data, error } = await window.sb
+    .from("orders")
+    .select("id, total, items, created_at, status")
+    .eq("customer_phone", phone)
+    .order("created_at", { ascending:false });
+  if(error){ showToast("Erro ao carregar compras"); return; }
+
+  const rows = (data || []).map(o=>{
+    const when = new Date(o.created_at).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"});
+    const itemsSummary = (o.items || []).map(it=>`${it.qty}x ${it.name}`).join(", ");
+    const excluded = o.status === "cancelado";
+    return `
+      <tr style="${excluded ? 'opacity:.45;' : ''}">
+        <td>${when}</td>
+        <td title="${itemsSummary.replace(/"/g,'&quot;')}">${itemsSummary.length>30 ? itemsSummary.slice(0,30)+"…" : itemsSummary}</td>
+        <td>R$ ${Number(o.total).toFixed(2).replace('.',',')}</td>
+        <td>${excluded ? '<span class="pill pill-inactive">Não conta</span>' : '<span class="pill pill-active">Conta</span>'}</td>
+        <td>
+          ${excluded
+            ? `<button class="btn btn-outline btn-sm" data-restore-order="${o.id}">Restaurar</button>`
+            : `<button class="btn btn-danger btn-sm" data-exclude-order="${o.id}">Não contar</button>`
+          }
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  openModal(`
+    <h3>Compras de ${name}</h3>
+    <div class="table-wrap" style="max-height:60vh;">
+      <table>
+        <thead><tr><th>Data</th><th>Itens</th><th>Total</th><th>Status</th><th></th></tr></thead>
+        <tbody id="customer-purchases-tbody">${rows || `<tr><td colspan="5" class="empty-hint">Nenhuma compra registrada.</td></tr>`}</tbody>
+      </table>
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" id="cp-close">Fechar</button></div>
+  `);
+  document.getElementById("cp-close").onclick = closeModal;
+  document.querySelectorAll("[data-exclude-order]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(!confirm("Marcar essa compra como \"não contar\"? Ela deixa de entrar nas estatísticas, mas continua salva e pode ser restaurada depois.")) return;
+      const { error } = await window.sb.from("orders").update({ status: "cancelado" }).eq("id", btn.dataset.excludeOrder);
+      if(error){ showToast("Erro ao excluir compra: " + error.message); return; }
+      showToast("Compra não vai mais contar nas estatísticas.");
+      openCustomerPurchases(phone, name);
+      loadDashboard();
+    };
+  });
+  document.querySelectorAll("[data-restore-order]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const { error } = await window.sb.from("orders").update({ status: "entregue" }).eq("id", btn.dataset.restoreOrder);
+      if(error){ showToast("Erro ao restaurar compra: " + error.message); return; }
+      showToast("Compra restaurada!");
+      openCustomerPurchases(phone, name);
+      loadDashboard();
+    };
+  });
+}
+
 function renderHiddenCustomersTable(){
   const hidden = manualCustomers.filter(c=>!c.active);
   const tbody = document.getElementById("hidden-customers-tbody");
@@ -1551,11 +1612,18 @@ function renderCustomersTable(){
       <td>${c.lastOrder ? new Date(c.lastOrder).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}) + ` <span style="color:rgba(244,236,218,.4);">(${c.daysSince}d)</span>` : "Nunca pediu"}</td>
       <td>${formatHourLabel(c.avgHour)}</td>
       <td><button class="btn btn-outline btn-sm" data-card-idx="${i}">🃏 Ver carta</button></td>
+      <td><button class="btn btn-outline btn-sm" data-hist-idx="${i}">🧾 Compras</button></td>
       <td><button class="btn btn-danger btn-sm" data-hide-idx="${i}">Remover</button></td>
     </tr>
   `).join("");
   tbody.querySelectorAll("[data-card-idx]").forEach(btn=>{
     btn.onclick = ()=> openPlayerCard(customersCache[Number(btn.dataset.cardIdx)]);
+  });
+  tbody.querySelectorAll("[data-hist-idx]").forEach(btn=>{
+    btn.onclick = ()=>{
+      const c = customersCache[Number(btn.dataset.histIdx)];
+      openCustomerPurchases(c.phone, c.name);
+    };
   });
   tbody.querySelectorAll("[data-hide-idx]").forEach(btn=>{
     btn.onclick = ()=>{
