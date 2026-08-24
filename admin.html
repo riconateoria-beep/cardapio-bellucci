@@ -435,7 +435,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Tag</th><th>Status</th><th></th></tr>
+              <tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Desconto</th><th>Tag</th><th>Status</th><th></th></tr>
             </thead>
             <tbody id="products-tbody"></tbody>
           </table>
@@ -716,6 +716,7 @@ function renderProductsTable(){
       <td>${p.name}</td>
       <td>${catName(p.cat_id)}</td>
       <td>R$ ${Number(p.price).toFixed(2).replace('.',',')}</td>
+      <td>${p.discount_pct ? `<span class="pill pill-active">-${Math.round(Number(p.discount_pct)*100)}%</span>` : "—"}</td>
       <td>${p.tag === "bestseller" ? "🔥 Mais vendido" : p.tag === "lowstock" ? "⏳ Últimas unidades" : "—"}</td>
       <td><span class="pill ${p.active ? 'pill-active' : 'pill-inactive'}">${p.active ? "Ativo" : "Oculto"}</span></td>
       <td>
@@ -746,6 +747,7 @@ function openProductForm(product){
     <div class="field"><label>Categoria</label><select id="pf-cat">${catOptions}</select></div>
     <div class="field"><label>Descrição (opcional)</label><input type="text" id="pf-desc" value="${product && product.description ? product.description.replace(/"/g,'&quot;') : ''}"></div>
     <div class="field"><label>Preço (R$)</label><input type="number" step="0.01" id="pf-price" value="${product ? product.price : ''}"></div>
+    <div class="field"><label>Desconto (%, opcional — deixe vazio pra não ter desconto)</label><input type="number" step="1" min="0" max="90" id="pf-discount" value="${product && product.discount_pct ? Math.round(Number(product.discount_pct)*100) : ''}" placeholder="Ex: 15"></div>
     <div class="field"><label>URL da imagem (opcional)</label><input type="text" id="pf-img" value="${product && product.img ? product.img : ''}"></div>
     <div class="field"><label>Selo (opcional, ex: Novidade, Recomendado)</label><input type="text" id="pf-badge" value="${product && product.badge ? product.badge : ''}"></div>
     <div class="field">
@@ -773,6 +775,8 @@ async function saveProduct(id){
   const cat_id = document.getElementById("pf-cat").value;
   const description = document.getElementById("pf-desc").value.trim() || null;
   const price = parseFloat(document.getElementById("pf-price").value);
+  const discountRaw = document.getElementById("pf-discount").value;
+  const discount_pct = discountRaw ? Math.max(0, Math.min(90, parseFloat(discountRaw))) / 100 : null;
   const img = document.getElementById("pf-img").value.trim() || null;
   const badge = document.getElementById("pf-badge").value.trim() || null;
   const tag = document.getElementById("pf-tag").value || null;
@@ -783,7 +787,7 @@ async function saveProduct(id){
     return;
   }
 
-  const payload = { name, cat_id, description, price, img, badge, tag, active };
+  const payload = { name, cat_id, description, price, discount_pct, img, badge, tag, active };
   const res = id
     ? await window.sb.from("products").update(payload).eq("id", id)
     : await window.sb.from("products").insert(payload);
@@ -1095,10 +1099,13 @@ function subscribeOrderAlerts(){
 document.getElementById("refresh-orders-btn").onclick = loadOrders;
 
 /* ===================== CUPONS ===================== */
+let allCoupons = [];
+
 async function loadCoupons(){
   const { data, error } = await window.sb.from("coupons").select("*").order("created_at", { ascending:false });
   if(error){ showToast("Erro ao carregar cupons"); return; }
-  renderCouponsTable(data || []);
+  allCoupons = data || [];
+  renderCouponsTable(allCoupons);
 }
 
 function renderCouponsTable(coupons){
@@ -1119,6 +1126,7 @@ function renderCouponsTable(coupons){
       <td><span class="pill ${c.active ? 'pill-active' : 'pill-inactive'}">${c.active ? "Ativo" : "Inativo"}</span></td>
       <td>
         <div class="row-flex">
+          <button class="btn btn-outline btn-sm" data-edit="${c.code}">Editar</button>
           <button class="btn btn-outline btn-sm" data-toggle="${c.code}" data-active="${c.active}">${c.active ? "Desativar" : "Ativar"}</button>
           <button class="btn btn-danger btn-sm" data-delcoupon="${c.code}">Excluir</button>
         </div>
@@ -1126,6 +1134,9 @@ function renderCouponsTable(coupons){
     </tr>
   `).join("");
 
+  tbody.querySelectorAll("[data-edit]").forEach(btn=>{
+    btn.onclick = ()=> openCouponForm(allCoupons.find(c=>c.code===btn.dataset.edit));
+  });
   tbody.querySelectorAll("[data-toggle]").forEach(btn=>{
     btn.onclick = async ()=>{
       const newActive = btn.dataset.active !== "true";
@@ -1145,31 +1156,37 @@ function renderCouponsTable(coupons){
   });
 }
 
-document.getElementById("add-coupon-btn").onclick = ()=>{
+document.getElementById("add-coupon-btn").onclick = ()=> openCouponForm(null);
+
+function openCouponForm(coupon){
+  const isEdit = !!coupon;
   openModal(`
-    <h3>Novo cupom</h3>
-    <div class="field"><label>Código (ex: BEMVINDO10)</label><input type="text" id="cf-code" style="text-transform:uppercase;"></div>
+    <h3>${isEdit ? "Editar cupom" : "Novo cupom"}</h3>
+    <div class="field">
+      <label>Código (ex: BEMVINDO10)${isEdit ? ' — não pode ser alterado' : ''}</label>
+      <input type="text" id="cf-code" style="text-transform:uppercase;" value="${isEdit ? coupon.code : ''}" ${isEdit ? 'disabled' : ''}>
+    </div>
     <div class="field">
       <label>Tipo de desconto</label>
       <select id="cf-type">
-        <option value="percent">Percentual (%)</option>
-        <option value="fixed">Valor fixo (R$)</option>
+        <option value="percent" ${isEdit && coupon.type==='percent' ? 'selected':''}>Percentual (%)</option>
+        <option value="fixed" ${isEdit && coupon.type==='fixed' ? 'selected':''}>Valor fixo (R$)</option>
       </select>
     </div>
-    <div class="field"><label>Valor</label><input type="number" step="0.01" id="cf-value"></div>
-    <div class="field"><label>Pedido mínimo (R$, opcional)</label><input type="number" step="0.01" id="cf-minorder" value="0"></div>
-    <div class="field"><label>Limite de usos (opcional)</label><input type="number" id="cf-limit" placeholder="Sem limite"></div>
+    <div class="field"><label>Valor</label><input type="number" step="0.01" id="cf-value" value="${isEdit ? coupon.value : ''}"></div>
+    <div class="field"><label>Pedido mínimo (R$, opcional)</label><input type="number" step="0.01" id="cf-minorder" value="${isEdit ? coupon.min_order : 0}"></div>
+    <div class="field"><label>Limite de usos (opcional)</label><input type="number" id="cf-limit" value="${isEdit && coupon.usage_limit ? coupon.usage_limit : ''}" placeholder="Sem limite"></div>
     <div class="modal-actions">
       <button class="btn btn-outline" id="cf-cancel">Cancelar</button>
-      <button class="btn btn-gold" id="cf-save">Criar cupom</button>
+      <button class="btn btn-gold" id="cf-save">${isEdit ? "Salvar" : "Criar cupom"}</button>
     </div>
   `);
   document.getElementById("cf-cancel").onclick = closeModal;
-  document.getElementById("cf-save").onclick = saveCoupon;
-};
+  document.getElementById("cf-save").onclick = ()=> saveCoupon(isEdit ? coupon.code : null);
+}
 
-async function saveCoupon(){
-  const code = document.getElementById("cf-code").value.trim().toUpperCase();
+async function saveCoupon(existingCode){
+  const code = existingCode || document.getElementById("cf-code").value.trim().toUpperCase();
   const type = document.getElementById("cf-type").value;
   const value = parseFloat(document.getElementById("cf-value").value);
   const min_order = parseFloat(document.getElementById("cf-minorder").value) || 0;
@@ -1181,10 +1198,13 @@ async function saveCoupon(){
     return;
   }
 
-  const { error } = await window.sb.from("coupons").insert({ code, type, value, min_order, usage_limit, active: true });
-  if(error){ showToast("Erro ao criar cupom: " + error.message); return; }
+  const res = existingCode
+    ? await window.sb.from("coupons").update({ type, value, min_order, usage_limit }).eq("code", existingCode)
+    : await window.sb.from("coupons").insert({ code, type, value, min_order, usage_limit, active: true });
+
+  if(res.error){ showToast("Erro ao salvar cupom: " + res.error.message); return; }
   closeModal();
-  showToast("Cupom criado!");
+  showToast(existingCode ? "Cupom atualizado!" : "Cupom criado!");
   loadCoupons();
 }
 
