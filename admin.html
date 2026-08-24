@@ -614,9 +614,13 @@
         <div class="field" style="margin:14px 0 0;">
           <input type="text" id="customers-search" placeholder="Buscar por nome ou WhatsApp...">
         </div>
+        <div class="row-flex" style="justify-content:space-between;margin-bottom:8px;">
+          <label class="checkbox-row"><input type="checkbox" id="customers-select-all"> Selecionar todos os visíveis</label>
+          <button class="btn btn-gold btn-sm" id="bulk-message-btn" disabled>📢 Mensagem em massa (0)</button>
+        </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Cliente</th><th>WhatsApp</th><th>Pedidos</th><th>Total gasto</th><th>Ticket médio</th><th>Último pedido</th><th>Horário médio</th><th></th><th></th><th></th></tr></thead>
+            <thead><tr><th></th><th>Cliente</th><th>WhatsApp</th><th>Pedidos</th><th>Total gasto</th><th>Ticket médio</th><th>Último pedido</th><th>Horário médio</th><th></th><th></th><th></th></tr></thead>
             <tbody id="customers-tbody"></tbody>
           </table>
         </div>
@@ -1502,6 +1506,7 @@ async function saveCoupon(existingCode){
 
 /* ===================== CLIENTES ===================== */
 let customersCache = [];
+let selectedCustomerPhones = new Set();
 
 function formatPhoneDisplay(phone){
   const d = (phone || "").replace(/\D/g,"");
@@ -1791,6 +1796,7 @@ function renderCustomersTable(){
   empty.style.display = "none";
   tbody.innerHTML = visible.map((c,i)=>`
     <tr>
+      <td><input type="checkbox" class="customer-select-check" data-phone="${c.phone}" ${selectedCustomerPhones.has(c.phone) ? "checked" : ""}></td>
       <td>${TIER_EMOJI[c.tier]} ${c.name}</td>
       <td>${formatPhoneDisplay(c.phone)}</td>
       <td>${c.count}</td>
@@ -1818,6 +1824,16 @@ function renderCustomersTable(){
       hideCustomer(c.phone, c.name);
     };
   });
+  tbody.querySelectorAll(".customer-select-check").forEach(cb=>{
+    cb.onchange = ()=>{
+      if(cb.checked) selectedCustomerPhones.add(cb.dataset.phone);
+      else selectedCustomerPhones.delete(cb.dataset.phone);
+      updateBulkMessageBtn();
+    };
+  });
+  const selectAllCb = document.getElementById("customers-select-all");
+  selectAllCb.checked = visible.length>0 && visible.every(c=>selectedCustomerPhones.has(c.phone));
+  updateBulkMessageBtn();
 }
 
 function renderMilestoneTable(){
@@ -1898,6 +1914,99 @@ document.getElementById("export-customers-btn").onclick = ()=>{
   a.remove();
   URL.revokeObjectURL(url);
   showToast(`${rows.length} cliente(s) exportado(s)!`);
+};
+
+/* ---------- disparo em massa (fila manual — sem API paga, sem violar TOS) ---------- */
+function updateBulkMessageBtn(){
+  const btn = document.getElementById("bulk-message-btn");
+  btn.textContent = `📢 Mensagem em massa (${selectedCustomerPhones.size})`;
+  btn.disabled = selectedCustomerPhones.size === 0;
+}
+
+document.getElementById("customers-select-all").addEventListener("change", (e)=>{
+  const visible = filteredCustomersCache();
+  visible.forEach(c=>{
+    if(e.target.checked) selectedCustomerPhones.add(c.phone);
+    else selectedCustomerPhones.delete(c.phone);
+  });
+  renderCustomersTable();
+});
+
+document.getElementById("bulk-message-btn").onclick = ()=>{
+  const selected = customersCache.filter(c=>selectedCustomerPhones.has(c.phone));
+  if(!selected.length) return;
+  openModal(`
+    <h3>Mensagem em massa — ${selected.length} cliente(s)</h3>
+    <p style="font-size:12px;color:rgba(244,236,218,.5);margin-bottom:14px;">Use <code>{nome}</code> pra entrar o primeiro nome de cada cliente automaticamente.</p>
+    <div class="field"><textarea id="bulk-msg-text" rows="5" placeholder="Oi {nome}! Temos uma novidade..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="bulk-msg-cancel">Cancelar</button>
+      <button class="btn btn-gold" id="bulk-msg-start">Iniciar disparo</button>
+    </div>
+  `);
+  document.getElementById("bulk-msg-cancel").onclick = closeModal;
+  document.getElementById("bulk-msg-start").onclick = ()=>{
+    const text = document.getElementById("bulk-msg-text").value.trim();
+    if(!text){ showToast("Escreva a mensagem primeiro."); return; }
+    startBulkCampaign(selected, text);
+  };
+};
+
+let bulkCampaignQueue = [];
+let bulkCampaignIndex = 0;
+let bulkCampaignTemplate = "";
+
+function startBulkCampaign(recipients, template){
+  bulkCampaignQueue = recipients;
+  bulkCampaignIndex = 0;
+  bulkCampaignTemplate = template;
+  renderBulkCampaignStep();
+}
+
+function renderBulkCampaignStep(){
+  const total = bulkCampaignQueue.length;
+  if(bulkCampaignIndex >= total){
+    openModal(`
+      <h3>Disparo concluído! 🎉</h3>
+      <p style="font-size:13px;color:rgba(244,236,218,.7);">Mensagem enviada (ou pulada) pra todos os ${total} clientes selecionados.</p>
+      <div class="modal-actions"><button class="btn btn-gold" id="bulk-done-close">Fechar</button></div>
+    `);
+    document.getElementById("bulk-done-close").onclick = ()=>{
+      selectedCustomerPhones.clear();
+      closeModal();
+      renderCustomersTable();
+    };
+    return;
+  }
+
+  const c = bulkCampaignQueue[bulkCampaignIndex];
+  const firstName = (c.name || "").trim().split(" ")[0] || c.name;
+  const msg = bulkCampaignTemplate.replace(/\{nome\}/g, firstName);
+  const digits = (c.phone || "").replace(/\D/g,"");
+  const link = `https://wa.me/55${digits}?text=${encodeURIComponent(msg)}`;
+  const pct = Math.round((bulkCampaignIndex/total)*100);
+
+  openModal(`
+    <h3>Disparo em massa (${bulkCampaignIndex+1} de ${total})</h3>
+    <div class="roleta-progress" style="margin-bottom:16px;"><div class="roleta-progress-fill" style="width:${pct}%;"></div></div>
+    <div class="field">
+      <label>Enviando para</label>
+      <div style="font-size:14px;color:var(--cream);font-weight:600;">${c.name} — ${formatPhoneDisplay(c.phone)}</div>
+    </div>
+    <div class="field">
+      <label>Mensagem</label>
+      <div style="font-size:13px;color:rgba(244,236,218,.75);background:rgba(0,0,0,.25);border-radius:10px;padding:10px 12px;white-space:pre-wrap;">${msg}</div>
+    </div>
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button class="btn btn-outline" id="bulk-skip">Pular</button>
+      <div class="row-flex">
+        <a class="btn btn-gold" id="bulk-open-wa" href="${link}" target="_blank" rel="noopener">Abrir WhatsApp</a>
+        <button class="btn btn-outline" id="bulk-next">Próximo ▶</button>
+      </div>
+    </div>
+  `);
+  document.getElementById("bulk-skip").onclick = ()=>{ bulkCampaignIndex++; renderBulkCampaignStep(); };
+  document.getElementById("bulk-next").onclick = ()=>{ bulkCampaignIndex++; renderBulkCampaignStep(); };
 };
 
 document.getElementById("save-loyalty-btn").onclick = async ()=>{
