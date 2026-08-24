@@ -184,6 +184,10 @@
     width:100%;background:none;color:rgba(224,138,138,.7);border:none;
     font-size:10.5px;padding:2px;text-decoration:underline;
   }
+  .order-edit-link{
+    background:none;border:none;color:var(--gold-light);font-size:11px;
+    cursor:pointer;padding:0;text-decoration:underline;
+  }
 
   .hours-grid{display:grid;grid-template-columns:70px 1fr 1fr 90px;gap:10px;align-items:center;margin-bottom:10px;}
   .hours-grid .day-label{font-size:12.5px;color:var(--cream);font-weight:600;}
@@ -491,6 +495,7 @@
         <div class="row-flex" style="justify-content:space-between;">
           <h2 style="margin:0;">Pedidos em andamento</h2>
           <div class="row-flex">
+            <button class="btn btn-gold btn-sm" id="add-order-btn">+ Novo pedido</button>
             <button class="btn btn-outline btn-sm" id="history-orders-btn">🕘 Histórico</button>
             <button class="btn btn-outline btn-sm" id="refresh-orders-btn">↻ Atualizar</button>
           </div>
@@ -1076,7 +1081,7 @@ function renderKanbanBoard(){
       return `
         <div class="order-card" draggable="true" data-id="${o.id}" data-status="${o.status}">
           <div class="order-card-top">
-            <span class="order-card-name">${o.customer_name}</span>
+            <span class="order-card-name">${o.customer_name} <button class="order-edit-link" data-edit-order="${o.id}" type="button">✎</button></span>
             <span class="order-card-time">${when}</span>
           </div>
           <div class="order-card-items">${orderItemsHTML(o)}</div>
@@ -1109,6 +1114,13 @@ function wireKanbanCards(){
     btn.onclick = ()=>{
       if(!confirm("Cancelar este pedido?")) return;
       updateOrderStatus(btn.dataset.id, "cancelado");
+    };
+  });
+  document.querySelectorAll("[data-edit-order]").forEach(btn=>{
+    btn.onclick = (e)=>{
+      e.stopPropagation();
+      const order = ordersCache.find(o=>o.id===btn.dataset.editOrder);
+      if(order) openOrderForm(order);
     };
   });
 }
@@ -1175,6 +1187,74 @@ async function updateOrderStatus(id, status){
   if(status === "entregue") showToast("Pedido concluído!");
   else if(status === "cancelado") showToast("Pedido cancelado.");
   else showToast(`Movido para "${STATUS_LABEL[status] || status}"`);
+  loadOrders();
+}
+
+/* ---------- criar/editar pedido ---------- */
+function openOrderForm(order){
+  const isEdit = !!order;
+  const itemsText = isEdit ? (order.items || []).map(it=>`${it.qty}x ${it.name}`).join("\n") : "";
+  openModal(`
+    <h3>${isEdit ? "Editar pedido" : "Novo pedido (manual)"}</h3>
+    <div class="field"><label>Nome do cliente</label><input type="text" id="of-name" value="${isEdit ? order.customer_name.replace(/"/g,'&quot;') : ''}"></div>
+    <div class="field"><label>WhatsApp</label><input type="text" id="of-phone" value="${isEdit ? (order.customer_phone||'') : ''}" placeholder="13999998888"></div>
+    <div class="field"><label>Endereço</label><input type="text" id="of-address" value="${isEdit ? order.address.replace(/"/g,'&quot;') : ''}"></div>
+    <div class="field">
+      <label>Itens (um por linha, ex: "2x Açaí 500ml")${isEdit ? ' — não recalcula o total sozinho' : ''}</label>
+      <textarea id="of-items" rows="4" placeholder="1x Açaí 500ml${String.fromCharCode(10)}1x Água Mineral">${itemsText}</textarea>
+    </div>
+    <div class="field"><label>Total (R$)</label><input type="number" step="0.01" id="of-total" value="${isEdit ? order.total : ''}"></div>
+    <div class="field">
+      <label>Forma de pagamento</label>
+      <select id="of-payment">
+        <option value="Pix" ${isEdit && order.payment_method==='Pix' ? 'selected':''}>Pix</option>
+        <option value="Cartão" ${isEdit && order.payment_method==='Cartão' ? 'selected':''}>Cartão</option>
+        <option value="Dinheiro" ${isEdit && order.payment_method==='Dinheiro' ? 'selected':''}>Dinheiro</option>
+      </select>
+    </div>
+    <div class="field"><label>Troco (opcional)</label><input type="text" id="of-troco" value="${isEdit && order.troco ? order.troco : ''}"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="of-cancel">Cancelar</button>
+      <button class="btn btn-gold" id="of-save">${isEdit ? "Salvar" : "Criar pedido"}</button>
+    </div>
+  `);
+  document.getElementById("of-cancel").onclick = closeModal;
+  document.getElementById("of-save").onclick = ()=> saveOrderForm(isEdit ? order.id : null);
+}
+
+document.getElementById("add-order-btn").onclick = ()=> openOrderForm(null);
+
+function parseItemsText(text){
+  return text.split("\n").map(l=>l.trim()).filter(Boolean).map(line=>{
+    const m = line.match(/^(\d+)\s*x\s*(.+)$/i);
+    return m ? { qty: parseInt(m[1],10), name: m[2].trim() } : { qty: 1, name: line };
+  });
+}
+
+async function saveOrderForm(existingId){
+  const customer_name = document.getElementById("of-name").value.trim();
+  const customer_phone = document.getElementById("of-phone").value.replace(/\D/g,"");
+  const address = document.getElementById("of-address").value.trim();
+  const itemsRaw = document.getElementById("of-items").value;
+  const total = parseFloat(document.getElementById("of-total").value);
+  const payment_method = document.getElementById("of-payment").value;
+  const troco = document.getElementById("of-troco").value.trim() || null;
+
+  if(!customer_name || !address || isNaN(total)){
+    showToast("Preencha nome, endereço e total.");
+    return;
+  }
+
+  const payload = { customer_name, customer_phone: customer_phone || null, address, total, payment_method, troco };
+  if(!existingId) payload.items = parseItemsText(itemsRaw);
+
+  const res = existingId
+    ? await window.sb.from("orders").update(payload).eq("id", existingId)
+    : await window.sb.from("orders").insert({ ...payload, status: "novo" });
+
+  if(res.error){ showToast("Erro ao salvar pedido: " + res.error.message); return; }
+  closeModal();
+  showToast(existingId ? "Pedido atualizado!" : "Pedido criado!");
   loadOrders();
 }
 
