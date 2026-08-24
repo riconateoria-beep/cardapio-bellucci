@@ -1077,14 +1077,27 @@ function effectivePrice(p){
 /* ===================== CUPOM DE DESCONTO ===================== */
 let appliedCoupon = null; // {code, type, value}
 
-function couponDiscountAmount(coupon, subtotal){
-  if(coupon.type === "percent") return subtotal * (Number(coupon.value)/100);
-  return Math.min(Number(coupon.value), subtotal);
+// soma só as linhas do carrinho que pertencem às categorias liberadas pro
+// cupom — combos ficam de fora por misturarem várias categorias num item só
+function couponEligibleSubtotal(coupon){
+  if(!coupon.category_ids || !coupon.category_ids.length) return cartTotals().total;
+  return cart.reduce((sum,l)=>{
+    if(l.id === "combo-custom") return sum;
+    const product = PRODUCTS.find(p=>p.id===l.id);
+    if(product && coupon.category_ids.includes(product.cat)) return sum + l.unitPrice*l.qty;
+    return sum;
+  }, 0);
+}
+
+function couponDiscountAmount(coupon){
+  const eligible = couponEligibleSubtotal(coupon);
+  if(coupon.type === "percent") return eligible * (Number(coupon.value)/100);
+  return Math.min(Number(coupon.value), eligible);
 }
 
 function checkoutTotals(){
   const {total: subtotal} = cartTotals();
-  const discount = appliedCoupon ? couponDiscountAmount(appliedCoupon, subtotal) : 0;
+  const discount = appliedCoupon ? couponDiscountAmount(appliedCoupon) : 0;
   const total = Math.max(0, subtotal - discount);
   return {subtotal, discount, total};
 }
@@ -1116,7 +1129,19 @@ async function applyCouponCode(rawCode){
   if(data.usage_limit !== null && data.usage_limit !== undefined && data.used_count >= data.usage_limit) return invalid("Este cupom já atingiu o limite de uso.");
   if(subtotal < Number(data.min_order || 0)) return invalid(`Pedido mínimo de R$ ${Number(data.min_order).toFixed(2).replace('.',',')} para este cupom.`);
 
-  appliedCoupon = { code: data.code, type: data.type, value: Number(data.value) };
+  const candidate = { code: data.code, type: data.type, value: Number(data.value), category_ids: data.category_ids || null };
+  if(candidate.category_ids && candidate.category_ids.length){
+    const eligible = couponEligibleSubtotal(candidate);
+    if(eligible <= 0){
+      const names = candidate.category_ids.map(id=>{
+        const cat = CATEGORIES.find(c=>c.id===id);
+        return cat ? cat.name : id;
+      }).join(", ");
+      return invalid(`Este cupom só vale para: ${names}. Adicione um item dessas categorias ao carrinho.`);
+    }
+  }
+
+  appliedCoupon = candidate;
   if(okEl){ okEl.textContent = `Cupom ${data.code} aplicado!`; okEl.style.display = "block"; }
   renderCheckoutSummary();
 }
