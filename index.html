@@ -1077,12 +1077,33 @@ function effectivePrice(p){
 /* ===================== CUPOM DE DESCONTO ===================== */
 let appliedCoupon = null; // {code, type, value}
 
-// soma só as linhas do carrinho que pertencem às categorias liberadas pro
-// cupom — combos ficam de fora por misturarem várias categorias num item só
+// um combo mistura várias categorias num item só — recalcula, a partir da
+// seleção salva na linha, quanto do preço (já com o desconto do combo)
+// corresponde só aos produtos das categorias liberadas pro cupom
+function comboLineEligibleAmount(line, categoryIds){
+  if(!line.selection) return 0;
+  const entries = Object.entries(line.selection);
+  let principalCount = 0;
+  entries.forEach(([id,qty])=>{
+    const p = PRODUCTS.find(pp=>pp.id===id);
+    if(p && p.cat !== "bebidas") principalCount += qty;
+  });
+  const pct = comboTierPct(principalCount);
+
+  let eligible = 0;
+  entries.forEach(([id,qty])=>{
+    const p = PRODUCTS.find(pp=>pp.id===id);
+    if(!p || !categoryIds.includes(p.cat)) return;
+    eligible += p.cat === "bebidas" ? effectivePrice(p)*qty : effectivePrice(p)*qty*(1-pct);
+  });
+  return eligible * line.qty;
+}
+
+// soma só as linhas do carrinho que pertencem às categorias liberadas pro cupom
 function couponEligibleSubtotal(coupon){
   if(!coupon.category_ids || !coupon.category_ids.length) return cartTotals().total;
   return cart.reduce((sum,l)=>{
-    if(l.id === "combo-custom") return sum;
+    if(l.id === "combo-custom") return sum + comboLineEligibleAmount(l, coupon.category_ids);
     const product = PRODUCTS.find(p=>p.id===l.id);
     if(product && coupon.category_ids.includes(product.cat)) return sum + l.unitPrice*l.qty;
     return sum;
