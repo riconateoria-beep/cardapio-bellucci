@@ -442,6 +442,20 @@
         </div>
         <div class="empty-hint" id="products-empty" style="display:none;">Carregando produtos...</div>
       </div>
+
+      <div class="card">
+        <div class="row-flex" style="justify-content:space-between;">
+          <h2 style="margin:0;">Categorias</h2>
+          <button class="btn btn-gold" id="add-category-btn">+ Nova categoria</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Ícone</th><th>Nome</th><th>Ordem</th><th>Produtos</th><th></th></tr></thead>
+            <tbody id="categories-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-hint" id="categories-empty" style="display:none;">Nenhuma categoria cadastrada.</div>
+      </div>
     </section>
 
     <!-- ===================== HORÁRIO ===================== -->
@@ -575,15 +589,29 @@
       <div class="card">
         <div class="row-flex" style="justify-content:space-between;">
           <h2 style="margin:0;">Todos os clientes</h2>
-          <button class="btn btn-outline btn-sm" id="refresh-customers-btn">↻ Atualizar</button>
+          <div class="row-flex">
+            <button class="btn btn-gold btn-sm" id="add-customer-btn">+ Novo cliente</button>
+            <button class="btn btn-outline btn-sm" id="refresh-customers-btn">↻ Atualizar</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Cliente</th><th>WhatsApp</th><th>Pedidos</th><th>Total gasto</th><th>Ticket médio</th><th>Último pedido</th><th>Horário médio</th><th></th></tr></thead>
+            <thead><tr><th>Cliente</th><th>WhatsApp</th><th>Pedidos</th><th>Total gasto</th><th>Ticket médio</th><th>Último pedido</th><th>Horário médio</th><th></th><th></th></tr></thead>
             <tbody id="customers-tbody"></tbody>
           </table>
         </div>
         <div class="empty-hint" id="customers-empty" style="display:none;">Carregando clientes...</div>
+      </div>
+
+      <div class="card">
+        <h2>Clientes ocultos</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Cliente</th><th>WhatsApp</th><th></th></tr></thead>
+            <tbody id="hidden-customers-tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-hint" id="hidden-customers-empty" style="display:none;">Nenhum cliente oculto.</div>
       </div>
     </section>
   </main>
@@ -698,6 +726,97 @@ async function loadProducts(){
   allProducts = prodRes.data;
   allCategories = catRes.data || [];
   renderProductsTable();
+  renderCategoriesTable();
+}
+
+function renderCategoriesTable(){
+  const tbody = document.getElementById("categories-tbody");
+  const empty = document.getElementById("categories-empty");
+  if(!allCategories.length){
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = allCategories.map(c=>{
+    const productCount = allProducts.filter(p=>p.cat_id===c.id).length;
+    return `
+      <tr>
+        <td style="font-size:20px;">${c.icon || "—"}</td>
+        <td>${c.name}</td>
+        <td>${c.sort_order}</td>
+        <td>${productCount}</td>
+        <td>
+          <div class="row-flex">
+            <button class="btn btn-outline btn-sm" data-edit-cat="${c.id}">Editar</button>
+            <button class="btn btn-danger btn-sm" data-del-cat="${c.id}" data-count="${productCount}">Excluir</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  tbody.querySelectorAll("[data-edit-cat]").forEach(btn=>{
+    btn.onclick = ()=> openCategoryForm(allCategories.find(c=>c.id===btn.dataset.editCat));
+  });
+  tbody.querySelectorAll("[data-del-cat]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(Number(btn.dataset.count) > 0){
+        showToast("Essa categoria tem produtos — mude a categoria deles antes de excluir.");
+        return;
+      }
+      if(!confirm("Excluir esta categoria?")) return;
+      const { error } = await window.sb.from("categories").delete().eq("id", btn.dataset.delCat);
+      if(error){ showToast("Erro ao excluir categoria: " + error.message); return; }
+      showToast("Categoria excluída.");
+      loadProducts();
+    };
+  });
+}
+
+document.getElementById("add-category-btn").onclick = ()=> openCategoryForm(null);
+
+function openCategoryForm(cat){
+  const isEdit = !!cat;
+  openModal(`
+    <h3>${isEdit ? "Editar categoria" : "Nova categoria"}</h3>
+    <div class="field">
+      <label>Identificador (sem espaço/acento, ex: sorvete-especial)${isEdit ? ' — não pode ser alterado' : ''}</label>
+      <input type="text" id="cat-id" value="${isEdit ? cat.id : ''}" ${isEdit ? 'disabled' : ''} placeholder="ex: pipoca">
+    </div>
+    <div class="field"><label>Nome exibido</label><input type="text" id="cat-name" value="${isEdit ? cat.name.replace(/"/g,'&quot;') : ''}" placeholder="Ex: Pipoca Gourmet"></div>
+    <div class="field"><label>Ícone (emoji)</label><input type="text" id="cat-icon" value="${isEdit && cat.icon ? cat.icon : ''}" placeholder="🍿"></div>
+    <div class="field"><label>URL da foto (opcional, aparece no círculo do cardápio)</label><input type="text" id="cat-img" value="${isEdit && cat.img ? cat.img : ''}"></div>
+    <div class="field"><label>Ordem</label><input type="number" id="cat-sort" value="${isEdit ? cat.sort_order : allCategories.length}"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="cat-cancel">Cancelar</button>
+      <button class="btn btn-gold" id="cat-save">${isEdit ? "Salvar" : "Criar categoria"}</button>
+    </div>
+  `);
+  document.getElementById("cat-cancel").onclick = closeModal;
+  document.getElementById("cat-save").onclick = ()=> saveCategory(isEdit ? cat.id : null);
+}
+
+async function saveCategory(existingId){
+  const id = existingId || document.getElementById("cat-id").value.trim().toLowerCase().replace(/[^a-z0-9-]/g,"-");
+  const name = document.getElementById("cat-name").value.trim();
+  const icon = document.getElementById("cat-icon").value.trim() || null;
+  const img = document.getElementById("cat-img").value.trim() || null;
+  const sort_order = parseInt(document.getElementById("cat-sort").value, 10) || 0;
+
+  if(!id || !name){
+    showToast("Preencha o identificador e o nome da categoria.");
+    return;
+  }
+
+  const res = existingId
+    ? await window.sb.from("categories").update({ name, icon, img, sort_order }).eq("id", existingId)
+    : await window.sb.from("categories").insert({ id, name, icon, img, sort_order });
+
+  if(res.error){ showToast("Erro ao salvar categoria: " + res.error.message); return; }
+  closeModal();
+  showToast(existingId ? "Categoria atualizada!" : "Categoria criada!");
+  loadProducts();
 }
 
 function renderProductsTable(){
@@ -761,6 +880,9 @@ function openProductForm(product){
     <div class="field">
       <label class="checkbox-row"><input type="checkbox" id="pf-active" ${!product || product.active ? "checked" : ""}> Produto ativo (visível no cardápio)</label>
     </div>
+    <div class="field">
+      <label class="checkbox-row"><input type="checkbox" id="pf-customizable" ${product && product.customizable ? "checked" : ""}> Customizável (estilo açaí — cliente escolhe complementos)</label>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" id="pf-cancel">Cancelar</button>
       <button class="btn btn-gold" id="pf-save">${isEdit ? "Salvar" : "Criar produto"}</button>
@@ -781,13 +903,14 @@ async function saveProduct(id){
   const badge = document.getElementById("pf-badge").value.trim() || null;
   const tag = document.getElementById("pf-tag").value || null;
   const active = document.getElementById("pf-active").checked;
+  const customizable = document.getElementById("pf-customizable").checked;
 
   if(!name || !cat_id || isNaN(price)){
     showToast("Preencha nome, categoria e preço.");
     return;
   }
 
-  const payload = { name, cat_id, description, price, discount_pct, img, badge, tag, active };
+  const payload = { name, cat_id, description, price, discount_pct, img, badge, tag, active, customizable };
   const res = id
     ? await window.sb.from("products").update(payload).eq("id", id)
     : await window.sb.from("products").insert(payload);
@@ -1251,19 +1374,26 @@ function pickFavorite(orders){
   return best ? { name: best, qty: bestQty } : null;
 }
 
-async function loadCustomers(){
-  const { data, error } = await window.sb
-    .from("orders")
-    .select("customer_name, customer_phone, total, created_at, items, status")
-    .not("customer_phone", "is", null)
-    .neq("status", "cancelado")
-    .order("created_at", { ascending:true });
+let manualCustomers = [];
 
-  if(error){ showToast("Erro ao carregar clientes"); return; }
+async function loadCustomers(){
+  const [ordersRes, customersRes] = await Promise.all([
+    window.sb.from("orders")
+      .select("customer_name, customer_phone, total, created_at, items, status")
+      .not("customer_phone", "is", null)
+      .neq("status", "cancelado")
+      .order("created_at", { ascending:true }),
+    window.sb.from("customers").select("*")
+  ]);
+
+  if(ordersRes.error){ showToast("Erro ao carregar clientes"); return; }
+  manualCustomers = customersRes.data || [];
+  const hiddenPhones = new Set(manualCustomers.filter(c=>!c.active).map(c=>c.phone));
 
   const byPhone = new Map();
-  (data || []).forEach(o=>{
+  (ordersRes.data || []).forEach(o=>{
     const key = o.customer_phone;
+    if(hiddenPhones.has(key)) return;
     if(!byPhone.has(key)) byPhone.set(key, []);
     byPhone.get(key).push(o);
   });
@@ -1282,18 +1412,93 @@ async function loadCustomers(){
     const avgHour = hours.reduce((s,h)=>s+h,0) / hours.length;
     const favorite = pickFavorite(orders);
     return { phone, name, count, totalSpent, firstOrder, lastOrder, daysSince, avgHour, favorite, tier: customerTier(count) };
-  }).sort((a,b)=> b.totalSpent - a.totalSpent);
+  });
+
+  // clientes cadastrados manualmente que ainda não fizeram nenhum pedido
+  manualCustomers.forEach(c=>{
+    if(!c.active) return;
+    if(byPhone.has(c.phone)) return;
+    customersCache.push({
+      phone: c.phone, name: c.name, count: 0, totalSpent: 0,
+      firstOrder: null, lastOrder: null, daysSince: null, avgHour: null,
+      favorite: null, tier: "bronze"
+    });
+  });
+
+  customersCache.sort((a,b)=> b.totalSpent - a.totalSpent);
 
   renderCustomersTable();
   renderMilestoneTable();
   renderInactiveTable();
+  renderHiddenCustomersTable();
+}
+
+document.getElementById("add-customer-btn").onclick = ()=>{
+  openModal(`
+    <h3>Novo cliente</h3>
+    <div class="field"><label>Nome</label><input type="text" id="nc-name" placeholder="Nome do cliente"></div>
+    <div class="field"><label>WhatsApp</label><input type="text" id="nc-phone" placeholder="13999998888 (DDD + número, só dígitos)"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="nc-cancel">Cancelar</button>
+      <button class="btn btn-gold" id="nc-save">Adicionar</button>
+    </div>
+  `);
+  document.getElementById("nc-cancel").onclick = closeModal;
+  document.getElementById("nc-save").onclick = async ()=>{
+    const name = document.getElementById("nc-name").value.trim();
+    const phone = document.getElementById("nc-phone").value.replace(/\D/g,"");
+    if(!name || phone.length < 10){
+      showToast("Preencha o nome e um WhatsApp válido.");
+      return;
+    }
+    const { error } = await window.sb.from("customers").upsert({ phone, name, active: true }, { onConflict: "phone" });
+    if(error){ showToast("Erro ao adicionar cliente: " + error.message); return; }
+    closeModal();
+    showToast("Cliente adicionado!");
+    loadCustomers();
+  };
+};
+
+async function hideCustomer(phone, name){
+  if(!confirm(`Ocultar ${name} da lista de clientes? O histórico de pedidos continua salvo, e dá pra reativar depois.`)) return;
+  const { error } = await window.sb.from("customers").upsert({ phone, name, active: false }, { onConflict: "phone" });
+  if(error){ showToast("Erro ao ocultar cliente: " + error.message); return; }
+  showToast("Cliente ocultado.");
+  loadCustomers();
+}
+
+function renderHiddenCustomersTable(){
+  const hidden = manualCustomers.filter(c=>!c.active);
+  const tbody = document.getElementById("hidden-customers-tbody");
+  const empty = document.getElementById("hidden-customers-empty");
+  if(!hidden.length){
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = hidden.map(c=>`
+    <tr>
+      <td>${c.name}</td>
+      <td>${formatPhoneDisplay(c.phone)}</td>
+      <td><button class="btn btn-outline btn-sm" data-reactivate="${c.phone}">Reativar</button></td>
+    </tr>
+  `).join("");
+  tbody.querySelectorAll("[data-reactivate]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const { error } = await window.sb.from("customers").update({ active: true }).eq("phone", btn.dataset.reactivate);
+      if(error){ showToast("Erro ao reativar cliente"); return; }
+      showToast("Cliente reativado!");
+      loadCustomers();
+    };
+  });
 }
 
 /* ---------- carta do cliente (gamificado) ---------- */
 function openPlayerCard(c){
   const n = currentSettings ? currentSettings.loyalty_every_n_orders : 5;
   const toNext = n - (c.count % n === 0 ? 0 : c.count % n);
-  const xpPct = Math.round(((c.count % n) / n) * 100) || (c.count % n === 0 ? 100 : 0);
+  const xpPct = c.count === 0 ? 0 : (Math.round(((c.count % n) / n) * 100) || (c.count % n === 0 ? 100 : 0));
   const initials = c.name.trim().split(" ").filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("");
 
   openModal(`
@@ -1306,9 +1511,9 @@ function openPlayerCard(c){
         <div class="player-card-stats">
           <div class="pcs-item"><div class="pcs-label">Pedidos</div><div class="pcs-value">${c.count}</div></div>
           <div class="pcs-item"><div class="pcs-label">Total gasto</div><div class="pcs-value">R$ ${c.totalSpent.toFixed(2).replace('.',',')}</div></div>
-          <div class="pcs-item"><div class="pcs-label">Ticket médio</div><div class="pcs-value">R$ ${(c.totalSpent/c.count).toFixed(2).replace('.',',')}</div></div>
-          <div class="pcs-item"><div class="pcs-label">Cliente desde</div><div class="pcs-value">${new Date(c.firstOrder).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})}</div></div>
-          <div class="pcs-item"><div class="pcs-label">Última compra</div><div class="pcs-value">${c.daysSince===0 ? "Hoje" : c.daysSince+"d atrás"}</div></div>
+          <div class="pcs-item"><div class="pcs-label">Ticket médio</div><div class="pcs-value">${c.count ? "R$ " + (c.totalSpent/c.count).toFixed(2).replace('.',',') : "—"}</div></div>
+          <div class="pcs-item"><div class="pcs-label">Cliente desde</div><div class="pcs-value">${c.firstOrder ? new Date(c.firstOrder).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}) : "—"}</div></div>
+          <div class="pcs-item"><div class="pcs-label">Última compra</div><div class="pcs-value">${c.daysSince===null ? "Nunca pediu" : c.daysSince===0 ? "Hoje" : c.daysSince+"d atrás"}</div></div>
           <div class="pcs-item"><div class="pcs-label">Costuma pedir</div><div class="pcs-value">${formatHourLabel(c.avgHour)}</div></div>
         </div>
         ${c.favorite ? `
@@ -1342,14 +1547,21 @@ function renderCustomersTable(){
       <td>${formatPhoneDisplay(c.phone)}</td>
       <td>${c.count}</td>
       <td>R$ ${c.totalSpent.toFixed(2).replace('.',',')}</td>
-      <td>R$ ${(c.totalSpent/c.count).toFixed(2).replace('.',',')}</td>
-      <td>${new Date(c.lastOrder).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})} <span style="color:rgba(244,236,218,.4);">(${c.daysSince}d)</span></td>
+      <td>${c.count ? "R$ " + (c.totalSpent/c.count).toFixed(2).replace('.',',') : "—"}</td>
+      <td>${c.lastOrder ? new Date(c.lastOrder).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}) + ` <span style="color:rgba(244,236,218,.4);">(${c.daysSince}d)</span>` : "Nunca pediu"}</td>
       <td>${formatHourLabel(c.avgHour)}</td>
       <td><button class="btn btn-outline btn-sm" data-card-idx="${i}">🃏 Ver carta</button></td>
+      <td><button class="btn btn-danger btn-sm" data-hide-idx="${i}">Remover</button></td>
     </tr>
   `).join("");
   tbody.querySelectorAll("[data-card-idx]").forEach(btn=>{
     btn.onclick = ()=> openPlayerCard(customersCache[Number(btn.dataset.cardIdx)]);
+  });
+  tbody.querySelectorAll("[data-hide-idx]").forEach(btn=>{
+    btn.onclick = ()=>{
+      const c = customersCache[Number(btn.dataset.hideIdx)];
+      hideCustomer(c.phone, c.name);
+    };
   });
 }
 
