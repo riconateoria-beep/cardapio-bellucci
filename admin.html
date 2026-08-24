@@ -487,6 +487,14 @@
         <div class="field"><label>Pedido mínimo (R$)</label><input type="number" step="0.01" id="set-minorder"></div>
         <button class="btn btn-gold" id="save-settings-btn">Salvar configurações</button>
       </div>
+      <div class="card">
+        <h2>Mensagens automáticas de WhatsApp</h2>
+        <p style="font-size:12px;color:rgba(244,236,218,.5);margin-bottom:14px;">Disparadas quando você move um pedido no board. Use <code>{nome}</code> onde quiser que apareça o primeiro nome do cliente.</p>
+        <div class="field"><label>Pedido em preparo</label><textarea id="set-msg-preparando" rows="2"></textarea></div>
+        <div class="field"><label>Pedido pronto</label><textarea id="set-msg-pronto" rows="2"></textarea></div>
+        <div class="field"><label>Pedido saiu pra entrega</label><textarea id="set-msg-entrega" rows="2"></textarea></div>
+        <button class="btn btn-gold" id="save-messages-btn">Salvar mensagens</button>
+      </div>
     </section>
 
     <!-- ===================== PEDIDOS ===================== -->
@@ -599,6 +607,7 @@
           <h2 style="margin:0;">Todos os clientes</h2>
           <div class="row-flex">
             <button class="btn btn-gold btn-sm" id="add-customer-btn">+ Novo cliente</button>
+            <button class="btn btn-outline btn-sm" id="export-customers-btn">⬇ Exportar CSV</button>
             <button class="btn btn-outline btn-sm" id="refresh-customers-btn">↻ Atualizar</button>
           </div>
         </div>
@@ -851,6 +860,8 @@ function renderProductsTable(){
       <td><span class="pill ${p.active ? 'pill-active' : 'pill-inactive'}">${p.active ? "Ativo" : "Oculto"}</span></td>
       <td>
         <div class="row-flex">
+          <button class="btn btn-outline btn-sm" data-move-up="${p.id}" title="Mover pra cima">↑</button>
+          <button class="btn btn-outline btn-sm" data-move-down="${p.id}" title="Mover pra baixo">↓</button>
           <button class="btn btn-outline btn-sm" data-edit="${p.id}">Editar</button>
           <button class="btn btn-danger btn-sm" data-delete="${p.id}">Excluir</button>
         </div>
@@ -858,6 +869,12 @@ function renderProductsTable(){
     </tr>
   `).join("");
 
+  tbody.querySelectorAll("[data-move-up]").forEach(btn=>{
+    btn.onclick = ()=> moveProduct(btn.dataset.moveUp, -1);
+  });
+  tbody.querySelectorAll("[data-move-down]").forEach(btn=>{
+    btn.onclick = ()=> moveProduct(btn.dataset.moveDown, 1);
+  });
   tbody.querySelectorAll("[data-edit]").forEach(btn=>{
     btn.onclick = ()=> openProductForm(allProducts.find(p=>p.id===btn.dataset.edit));
   });
@@ -940,6 +957,23 @@ async function deleteProduct(id){
   loadProducts();
 }
 
+async function moveProduct(id, direction){
+  const product = allProducts.find(p=>p.id===id);
+  if(!product) return;
+  const sameCat = allProducts.filter(p=>p.cat_id===product.cat_id).sort((a,b)=>a.sort_order-b.sort_order);
+  const idx = sameCat.findIndex(p=>p.id===id);
+  const swapIdx = idx + direction;
+  if(swapIdx < 0 || swapIdx >= sameCat.length) return;
+  const other = sameCat[swapIdx];
+
+  const [res1, res2] = await Promise.all([
+    window.sb.from("products").update({ sort_order: other.sort_order }).eq("id", product.id),
+    window.sb.from("products").update({ sort_order: product.sort_order }).eq("id", other.id)
+  ]);
+  if(res1.error || res2.error){ showToast("Erro ao reordenar produto"); return; }
+  loadProducts();
+}
+
 /* ===================== HORÁRIO / SETTINGS ===================== */
 const DAY_KEYS = [["mon","Seg"],["tue","Ter"],["wed","Qua"],["thu","Qui"],["fri","Sex"],["sat","Sáb"],["sun","Dom"]];
 let currentSettings = null;
@@ -958,9 +992,24 @@ async function loadSettings(){
   document.getElementById("set-minorder").value = data.min_order || 0;
   document.getElementById("cli-milestone").value = data.loyalty_every_n_orders || 5;
   document.getElementById("cli-inactive-days").value = data.inactive_customer_days || 14;
+  document.getElementById("set-msg-preparando").value = data.msg_preparando || "";
+  document.getElementById("set-msg-pronto").value = data.msg_pronto || "";
+  document.getElementById("set-msg-entrega").value = data.msg_entrega || "";
   renderMilestoneTable();
   renderInactiveTable();
 }
+
+document.getElementById("save-messages-btn").onclick = async ()=>{
+  const payload = {
+    msg_preparando: document.getElementById("set-msg-preparando").value.trim(),
+    msg_pronto: document.getElementById("set-msg-pronto").value.trim(),
+    msg_entrega: document.getElementById("set-msg-entrega").value.trim()
+  };
+  const { error } = await window.sb.from("settings").update(payload).eq("id", true);
+  if(error){ showToast("Erro ao salvar mensagens: " + error.message); return; }
+  currentSettings = { ...currentSettings, ...payload };
+  showToast("Mensagens salvas!");
+};
 
 function renderHoursForm(hours){
   const wrap = document.getElementById("hours-form");
@@ -1145,18 +1194,24 @@ function wireKanbanDragDrop(){
   });
 }
 
-const STATUS_NOTIFY_MSG = {
-  preparando: (n)=> `Oi ${n}! Seu pedido já está sendo preparado com carinho aqui na Bellucci 👨‍🍳`,
-  pronto:     (n)=> `Oi ${n}! Seu pedido ficou pronto e já vai sair para entrega 🎉`,
-  em_entrega: (n)=> `Oi ${n}! Seu pedido saiu para entrega e já está a caminho 🛵💨`
+const STATUS_MSG_SETTINGS_KEY = {
+  preparando: "msg_preparando",
+  pronto: "msg_pronto",
+  em_entrega: "msg_entrega"
+};
+const STATUS_MSG_FALLBACK = {
+  preparando: "Oi {nome}! Seu pedido já está sendo preparado com carinho aqui na Bellucci 👨‍🍳",
+  pronto: "Oi {nome}! Seu pedido ficou pronto e já vai sair para entrega 🎉",
+  em_entrega: "Oi {nome}! Seu pedido saiu para entrega e já está a caminho 🛵💨"
 };
 
 function notifyCustomerStatus(order, status){
-  const build = STATUS_NOTIFY_MSG[status];
-  if(!build || !order || !order.customer_phone) return;
+  const settingsKey = STATUS_MSG_SETTINGS_KEY[status];
+  if(!settingsKey || !order || !order.customer_phone) return;
   const digits = order.customer_phone.replace(/\D/g,"");
   const firstName = (order.customer_name || "").trim().split(" ")[0] || order.customer_name;
-  const msg = build(firstName);
+  const template = (currentSettings && currentSettings[settingsKey]) || STATUS_MSG_FALLBACK[status];
+  const msg = template.replace(/\{nome\}/g, firstName);
   const link = `https://wa.me/55${digits}?text=${encodeURIComponent(msg)}`;
 
   // real <a target="_blank"> the owner clicks — window.open() from here gets
@@ -1814,6 +1869,36 @@ function renderInactiveTable(){
 
 document.getElementById("refresh-customers-btn").onclick = loadCustomers;
 document.getElementById("customers-search").addEventListener("input", renderCustomersTable);
+
+document.getElementById("export-customers-btn").onclick = ()=>{
+  const rows = filteredCustomersCache();
+  if(!rows.length){ showToast("Nenhum cliente pra exportar."); return; }
+  const header = ["Nome","WhatsApp","Pedidos","Total gasto","Ticket medio","Ultimo pedido","Horario medio","Tier"];
+  const csvLines = [header.join(";")];
+  rows.forEach(c=>{
+    csvLines.push([
+      `"${(c.name||"").replace(/"/g,'""')}"`,
+      formatPhoneDisplay(c.phone),
+      c.count,
+      c.totalSpent.toFixed(2).replace('.',','),
+      c.count ? (c.totalSpent/c.count).toFixed(2).replace('.',',') : "",
+      c.lastOrder ? new Date(c.lastOrder).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}) : "",
+      formatHourLabel(c.avgHour),
+      TIER_LABEL[c.tier]
+    ].join(";"));
+  });
+  const csv = "﻿" + csvLines.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `clientes-bellucci-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast(`${rows.length} cliente(s) exportado(s)!`);
+};
 
 document.getElementById("save-loyalty-btn").onclick = async ()=>{
   const loyalty_every_n_orders = parseInt(document.getElementById("cli-milestone").value, 10) || 5;
