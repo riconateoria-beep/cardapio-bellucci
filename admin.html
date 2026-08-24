@@ -899,7 +899,12 @@ function openProductForm(product){
     <div class="field"><label>Descrição (opcional)</label><input type="text" id="pf-desc" value="${product && product.description ? product.description.replace(/"/g,'&quot;') : ''}"></div>
     <div class="field"><label>Preço (R$)</label><input type="number" step="0.01" id="pf-price" value="${product ? product.price : ''}"></div>
     <div class="field"><label>Desconto (%, opcional — deixe vazio pra não ter desconto)</label><input type="number" step="1" min="0" max="90" id="pf-discount" value="${product && product.discount_pct ? Math.round(Number(product.discount_pct)*100) : ''}" placeholder="Ex: 15"></div>
-    <div class="field"><label>URL da imagem (opcional)</label><input type="text" id="pf-img" value="${product && product.img ? product.img : ''}"></div>
+    <div class="field">
+      <label>Imagem (opcional)</label>
+      <input type="text" id="pf-img" value="${product && product.img ? product.img : ''}" placeholder="Cole uma URL ou envie um arquivo abaixo">
+      <input type="file" id="pf-img-file" accept="image/*" style="margin-top:8px;">
+      <div id="pf-img-status" style="font-size:11.5px;color:rgba(244,236,218,.5);margin-top:6px;"></div>
+    </div>
     <div class="field"><label>Selo (opcional, ex: Novidade, Recomendado)</label><input type="text" id="pf-badge" value="${product && product.badge ? product.badge : ''}"></div>
     <div class="field">
       <label>Destaque de estoque/popularidade</label>
@@ -922,6 +927,31 @@ function openProductForm(product){
   `);
   document.getElementById("pf-cancel").onclick = closeModal;
   document.getElementById("pf-save").onclick = ()=> saveProduct(product ? product.id : null);
+  document.getElementById("pf-img-file").addEventListener("change", (e)=>{
+    uploadImageFile(e.target.files[0], "pf-img", "pf-img-status");
+  });
+}
+
+/* ---------- upload de imagem (Supabase Storage) ---------- */
+async function uploadImageFile(file, targetInputId, statusElId){
+  if(!file) return;
+  const statusEl = document.getElementById(statusElId);
+  const targetEl = document.getElementById(targetInputId);
+  if(!file.type.startsWith("image/")){
+    if(statusEl) statusEl.textContent = "Escolha um arquivo de imagem.";
+    return;
+  }
+  if(statusEl) statusEl.textContent = "Enviando imagem...";
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `uploads/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const { error } = await window.sb.storage.from("cardapio-images").upload(path, file, { upsert: false });
+  if(error){
+    if(statusEl) statusEl.textContent = "Erro ao enviar: " + error.message;
+    return;
+  }
+  const { data } = window.sb.storage.from("cardapio-images").getPublicUrl(path);
+  targetEl.value = data.publicUrl;
+  if(statusEl) statusEl.textContent = "✓ Imagem enviada!";
 }
 
 async function saveProduct(id){
