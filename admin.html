@@ -495,6 +495,9 @@
             <button class="btn btn-outline btn-sm" id="refresh-orders-btn">↻ Atualizar</button>
           </div>
         </div>
+        <div class="field" style="margin:14px 0 0;">
+          <input type="text" id="orders-search" placeholder="Buscar por nome ou WhatsApp...">
+        </div>
       </div>
 
       <div class="kanban-board" id="kanban-board">
@@ -593,6 +596,9 @@
             <button class="btn btn-gold btn-sm" id="add-customer-btn">+ Novo cliente</button>
             <button class="btn btn-outline btn-sm" id="refresh-customers-btn">↻ Atualizar</button>
           </div>
+        </div>
+        <div class="field" style="margin:14px 0 0;">
+          <input type="text" id="customers-search" placeholder="Buscar por nome ou WhatsApp...">
         </div>
         <div class="table-wrap">
           <table>
@@ -1040,12 +1046,25 @@ function orderItemsHTML(o){
   }).join("");
 }
 
+function filteredOrdersCache(){
+  const term = (document.getElementById("orders-search")?.value || "").trim().toLowerCase();
+  if(!term) return ordersCache;
+  const digits = term.replace(/\D/g,"");
+  return ordersCache.filter(o=>{
+    const nameMatch = (o.customer_name || "").toLowerCase().includes(term);
+    const phoneMatch = digits && (o.customer_phone || "").includes(digits);
+    return nameMatch || phoneMatch;
+  });
+}
+
 function renderKanbanBoard(){
+  const visible = filteredOrdersCache();
   const empty = document.getElementById("orders-empty");
-  empty.style.display = ordersCache.length ? "none" : "block";
+  empty.style.display = visible.length ? "none" : "block";
+  empty.textContent = ordersCache.length && !visible.length ? "Nenhum pedido encontrado pra essa busca." : "Nenhum pedido em andamento.";
 
   KANBAN_STATUSES.forEach(status=>{
-    const inCol = ordersCache.filter(o=>o.status===status);
+    const inCol = visible.filter(o=>o.status===status);
     const cardsEl = document.getElementById("cards-"+status);
     const countEl = document.getElementById("count-"+status);
     const totalEl = document.getElementById("total-"+status);
@@ -1220,6 +1239,7 @@ function subscribeOrderAlerts(){
 }
 
 document.getElementById("refresh-orders-btn").onclick = loadOrders;
+document.getElementById("orders-search").addEventListener("input", renderKanbanBoard);
 
 /* ===================== CUPONS ===================== */
 let allCoupons = [];
@@ -1606,6 +1626,17 @@ function openPlayerCard(c){
   document.getElementById("player-card-close").onclick = closeModal;
 }
 
+function filteredCustomersCache(){
+  const term = (document.getElementById("customers-search")?.value || "").trim().toLowerCase();
+  if(!term) return customersCache;
+  const digits = term.replace(/\D/g,"");
+  return customersCache.filter(c=>{
+    const nameMatch = (c.name || "").toLowerCase().includes(term);
+    const phoneMatch = digits && (c.phone || "").includes(digits);
+    return nameMatch || phoneMatch;
+  });
+}
+
 function renderCustomersTable(){
   const tbody = document.getElementById("customers-tbody");
   const empty = document.getElementById("customers-empty");
@@ -1615,8 +1646,15 @@ function renderCustomersTable(){
     empty.textContent = "Nenhum cliente com WhatsApp registrado ainda.";
     return;
   }
+  const visible = filteredCustomersCache();
+  if(!visible.length){
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    empty.textContent = "Nenhum cliente encontrado pra essa busca.";
+    return;
+  }
   empty.style.display = "none";
-  tbody.innerHTML = customersCache.map((c,i)=>`
+  tbody.innerHTML = visible.map((c,i)=>`
     <tr>
       <td>${TIER_EMOJI[c.tier]} ${c.name}</td>
       <td>${formatPhoneDisplay(c.phone)}</td>
@@ -1631,17 +1669,17 @@ function renderCustomersTable(){
     </tr>
   `).join("");
   tbody.querySelectorAll("[data-card-idx]").forEach(btn=>{
-    btn.onclick = ()=> openPlayerCard(customersCache[Number(btn.dataset.cardIdx)]);
+    btn.onclick = ()=> openPlayerCard(visible[Number(btn.dataset.cardIdx)]);
   });
   tbody.querySelectorAll("[data-hist-idx]").forEach(btn=>{
     btn.onclick = ()=>{
-      const c = customersCache[Number(btn.dataset.histIdx)];
+      const c = visible[Number(btn.dataset.histIdx)];
       openCustomerPurchases(c.phone, c.name);
     };
   });
   tbody.querySelectorAll("[data-hide-idx]").forEach(btn=>{
     btn.onclick = ()=>{
-      const c = customersCache[Number(btn.dataset.hideIdx)];
+      const c = visible[Number(btn.dataset.hideIdx)];
       hideCustomer(c.phone, c.name);
     };
   });
@@ -1695,6 +1733,7 @@ function renderInactiveTable(){
 }
 
 document.getElementById("refresh-customers-btn").onclick = loadCustomers;
+document.getElementById("customers-search").addEventListener("input", renderCustomersTable);
 
 document.getElementById("save-loyalty-btn").onclick = async ()=>{
   const loyalty_every_n_orders = parseInt(document.getElementById("cli-milestone").value, 10) || 5;
