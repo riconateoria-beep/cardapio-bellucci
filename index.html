@@ -1216,12 +1216,11 @@ const ROLETA_MIN = 50;
 // prêmios mais baratos pra casa (refri, desconto) saem bem mais que os caros
 // (sorvete, fatia de pizza) — controla o custo real da promoção.
 const ROLETA_PRIZES = [
-  {label:"Açaí",         value:"Complemento grátis no açaí",       code:"GIROACAI",    weight:18, kind:"freebie"},
-  {label:"Pizza Cone",   value:"Fatia de Pizza no Cone grátis",    code:"GIROPIZZA",   weight:6,  kind:"freebie"},
-  {label:"Picolé",       value:"Picolé Artesanal grátis",          code:"GIROPICOLE",  weight:15, kind:"freebie"},
+  {label:"Pizza Cone",   value:"Fatia de Pizza no Cone grátis",    code:"GIROPIZZA",   weight:5,  kind:"freebie"},
+  {label:"Picolé",       value:"Picolé Artesanal grátis",          code:"GIROPICOLE",  weight:5,  kind:"freebie"},
   {label:"Sorvete",      value:"Sorvete Tailandês grátis",         code:"GIROSORVETE", weight:5,  kind:"freebie"},
-  {label:"Refri",        value:"Refrigerante grátis",              code:"GIROBEBIDA",  weight:26, kind:"freebie"},
-  {label:"10% OFF",      value:"10% de desconto no pedido",        code:"GIRO10",      weight:30, kind:"coupon"}
+  {label:"Refri",        value:"Refrigerante grátis",              code:"GIROBEBIDA",  weight:5,  kind:"freebie"},
+  {label:"10% OFF",      value:"10% de desconto no pedido",        code:"GIRO10",      weight:80, kind:"coupon"}
 ];
 
 const ROLETA_SESSION_KEY = "bellucci_roleta_prize";
