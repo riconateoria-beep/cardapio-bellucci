@@ -238,6 +238,29 @@
   }
   .combo-discount-row{color:var(--gold-light);font-weight:600;}
 
+  .combo-savings-bar{
+    position:sticky;top:-4px;z-index:2;
+    margin:0 0 16px;padding:11px 14px;
+    border-radius:12px;text-align:center;
+    font-size:12.5px;font-weight:600;color:rgba(244,236,218,.55);
+    background:rgba(0,0,0,.3);border:1px dashed rgba(201,162,74,.3);
+    transition:.25s;
+  }
+  .combo-savings-bar.active{
+    color:var(--gold-light);border:1px solid var(--gold);background:rgba(201,162,74,.14);
+  }
+  .combo-step-indicator{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin-bottom:12px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:rgba(244,236,218,.5);
+  }
+  .combo-step-dots{display:flex;gap:5px;flex-shrink:0;}
+  .combo-step-dots span{width:6px;height:6px;border-radius:50%;background:rgba(244,236,218,.2);transition:.25s;}
+  .combo-step-dots span.done{background:var(--gold);}
+  .combo-step-dots span.current{background:var(--gold-light);width:16px;border-radius:4px;}
+  .combo-step-nav{display:flex;gap:10px;margin-top:18px;}
+  .combo-step-nav .btn{flex:1;justify-content:center;padding:14px;border-radius:40px;font-weight:600;font-size:14px;cursor:pointer;}
+  .combo-step-nav .btn:disabled{opacity:.4;cursor:default;}
+
   /* ---------- hero ---------- */
   .hero{
     position:relative;
@@ -888,7 +911,7 @@
   <div class="combo-banner-inner">
     <span class="combo-badge">Novidade</span>
     <h2>Monte seu combo</h2>
-    <p>Escolha os itens que quiser do cardápio e ganhe até 20% de desconto — você decide o que entra no seu combo.</p>
+    <p>Escolha os itens que quiser do cardápio e ganhe desconto — você decide o que entra no seu combo.</p>
     <button class="btn btn-primary" id="combo-banner-btn">Montar meu combo →</button>
   </div>
 </section>
@@ -1349,10 +1372,12 @@ function spinRoleta(){
 }
 
 /* ===================== MONTE SEU COMBO ===================== */
-const COMBO_TIERS = [{min:4,pct:0.20},{min:3,pct:0.15},{min:2,pct:0.10}];
+const COMBO_TIERS = [{min:6,pct:0.10},{min:4,pct:0.06},{min:2,pct:0.03}];
 const COMBO_EXCLUDED_CATS = ["acai","combos"];
 let comboSelection = {};
 let comboEditKey = null;
+let comboGroups = [];
+let comboStepIndex = 0;
 
 function comboTierPct(count){
   for(const t of COMBO_TIERS){ if(count>=t.min) return t.pct; }
@@ -1374,12 +1399,28 @@ function comboTotals(){
 }
 
 function buildComboHTML(){
-  const groups = CATEGORIES
+  comboGroups = CATEGORIES
     .filter(c=>!COMBO_EXCLUDED_CATS.includes(c.id))
     .map(c=>({cat:c, items: PRODUCTS.filter(p=>p.cat===c.id)}))
     .filter(g=>g.items.length);
+  comboStepIndex = 0;
 
-  const groupsHtml = groups.map(g=>`
+  return `
+    <div class="modal-sheet combo-sheet" role="dialog" aria-modal="true">
+      <button class="modal-close" id="modal-close" aria-label="Fechar">✕</button>
+      <div class="modal-title">${comboEditKey ? 'Editar seu Combo' : 'Monte seu Combo'}<span class="combo-title-badge">Novidade</span></div>
+      <div class="modal-sub">Escolha os itens que quiser, passo a passo — quanto mais itens, maior o desconto. Bebidas entram sem desconto.</div>
+      <div class="combo-savings-bar" id="combo-savings-bar">Escolha pelo menos 2 itens para começar a economizar</div>
+      <div class="combo-step-indicator" id="combo-step-indicator"></div>
+      <div class="combo-groups" id="combo-groups"></div>
+      <div class="combo-summary" id="combo-summary"></div>
+      <div class="combo-step-nav" id="combo-step-nav"></div>
+    </div>
+  `;
+}
+
+function comboGroupHTML(g){
+  return `
     <div class="combo-group">
       <div class="combo-group-title">${g.cat.icon} ${g.cat.name}</div>
       ${g.items.map(p=>`
@@ -1390,22 +1431,11 @@ function buildComboHTML(){
           </div>
           <div class="combo-qty" data-id="${p.id}">
             <button data-act="minus" aria-label="Diminuir">−</button>
-            <span>0</span>
+            <span>${comboSelection[p.id] || 0}</span>
             <button data-act="plus" aria-label="Aumentar">+</button>
           </div>
         </div>
       `).join("")}
-    </div>
-  `).join("");
-
-  return `
-    <div class="modal-sheet combo-sheet" role="dialog" aria-modal="true">
-      <button class="modal-close" id="modal-close" aria-label="Fechar">✕</button>
-      <div class="modal-title">${comboEditKey ? 'Editar seu Combo' : 'Monte seu Combo'}<span class="combo-title-badge">Novidade</span></div>
-      <div class="modal-sub">Escolha os itens que quiser — quanto mais itens, maior o desconto (até 20%). Bebidas entram sem desconto.</div>
-      <div class="combo-groups">${groupsHtml}</div>
-      <div class="combo-summary" id="combo-summary"></div>
-      <button class="modal-confirm" id="combo-confirm" disabled>Escolha ao menos 2 itens</button>
     </div>
   `;
 }
@@ -1415,20 +1445,42 @@ function openComboModal(prefill, editKey){
   comboEditKey = editKey || null;
   const overlay = document.getElementById("modal-overlay");
   overlay.innerHTML = buildComboHTML();
-  wireComboEvents();
+  document.getElementById("modal-close").onclick = closeModal;
+  overlay.onclick = (e)=>{ if(e.target.id==="modal-overlay") closeModal(); };
+  renderComboStep();
   overlay.classList.add("show");
   document.body.style.overflow = "hidden";
 }
 
-function wireComboEvents(){
-  document.getElementById("modal-close").onclick = closeModal;
-  document.getElementById("modal-overlay").onclick = (e)=>{ if(e.target.id==="modal-overlay") closeModal(); };
+function renderComboStep(){
+  const totalSteps = comboGroups.length;
+  const g = comboGroups[comboStepIndex];
+  const isLast = comboStepIndex === totalSteps-1;
+
+  document.getElementById("combo-step-indicator").innerHTML = `
+    <span>Passo ${comboStepIndex+1} de ${totalSteps} — ${g.cat.name}</span>
+    <span class="combo-step-dots">${comboGroups.map((_,i)=>`<span class="${i<comboStepIndex ? 'done' : i===comboStepIndex ? 'current' : ''}"></span>`).join("")}</span>
+  `;
+  document.getElementById("combo-groups").innerHTML = comboGroupHTML(g);
   document.querySelectorAll(".combo-qty").forEach(el=>{
     const id = el.dataset.id;
     el.querySelector('[data-act="minus"]').onclick = ()=> changeComboQty(id,-1);
     el.querySelector('[data-act="plus"]').onclick = ()=> changeComboQty(id,1);
   });
-  document.getElementById("combo-confirm").onclick = confirmCombo;
+
+  const nav = document.getElementById("combo-step-nav");
+  nav.innerHTML = `
+    ${comboStepIndex>0 ? `<button class="btn btn-outline" id="combo-back">← Voltar</button>` : ""}
+    ${isLast
+      ? `<button class="btn btn-gold" id="combo-confirm" disabled>Escolha ao menos 2 itens</button>`
+      : `<button class="btn btn-gold" id="combo-next">Próximo →</button>`
+    }
+  `;
+  const backBtn = document.getElementById("combo-back");
+  if(backBtn) backBtn.onclick = ()=>{ comboStepIndex--; renderComboStep(); };
+  const nextBtn = document.getElementById("combo-next");
+  if(nextBtn) nextBtn.onclick = ()=>{ comboStepIndex++; renderComboStep(); };
+
   refreshComboUI();
 }
 
@@ -1450,23 +1502,41 @@ function refreshComboUI(){
   });
 
   const {principalSubtotal, principalCount, bebidaSubtotal, pct, discount, total} = comboTotals();
-  const summary = document.getElementById("combo-summary");
-  const btn = document.getElementById("combo-confirm");
 
+  const savingsBar = document.getElementById("combo-savings-bar");
   if(principalCount < 2){
-    summary.innerHTML = `<div class="combo-summary-hint">Escolha pelo menos 2 itens do cardápio (fora bebidas) para ativar o desconto.</div>`;
-    btn.disabled = true;
-    btn.textContent = "Escolha ao menos 2 itens";
-    return;
+    const missing = 2 - principalCount;
+    savingsBar.textContent = principalCount===0
+      ? "Escolha pelo menos 2 itens para começar a economizar"
+      : `Escolha mais ${missing} item${missing>1 ? 's' : ''} para começar a economizar`;
+    savingsBar.classList.remove("active");
+  } else {
+    savingsBar.textContent = `🎉 Você já economiza R$ ${discount.toFixed(2).replace('.',',')} (${Math.round(pct*100)}%)`;
+    savingsBar.classList.add("active");
   }
 
-  summary.innerHTML = `
-    <div class="checkout-summary-row"><span>Subtotal itens</span><span>R$ ${(principalSubtotal+bebidaSubtotal).toFixed(2).replace('.',',')}</span></div>
-    <div class="checkout-summary-row combo-discount-row"><span>Desconto combo (${Math.round(pct*100)}%)</span><span>-R$ ${discount.toFixed(2).replace('.',',')}</span></div>
-    <div class="checkout-summary-total"><span>Total</span><span>R$ ${total.toFixed(2).replace('.',',')}</span></div>
-  `;
-  btn.disabled = false;
-  btn.textContent = `${comboEditKey ? 'Salvar alterações' : 'Adicionar combo'} — R$ ${total.toFixed(2).replace('.',',')}`;
+  const summary = document.getElementById("combo-summary");
+  if(principalCount < 2){
+    summary.innerHTML = `<div class="combo-summary-hint">Escolha pelo menos 2 itens do cardápio (fora bebidas) para ativar o desconto.</div>`;
+  } else {
+    summary.innerHTML = `
+      <div class="checkout-summary-row"><span>Subtotal itens</span><span>R$ ${(principalSubtotal+bebidaSubtotal).toFixed(2).replace('.',',')}</span></div>
+      <div class="checkout-summary-row combo-discount-row"><span>Desconto combo (${Math.round(pct*100)}%)</span><span>-R$ ${discount.toFixed(2).replace('.',',')}</span></div>
+      <div class="checkout-summary-total"><span>Total</span><span>R$ ${total.toFixed(2).replace('.',',')}</span></div>
+    `;
+  }
+
+  const confirmBtn = document.getElementById("combo-confirm");
+  if(confirmBtn){
+    confirmBtn.onclick = confirmCombo;
+    if(principalCount < 2){
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "Escolha ao menos 2 itens";
+    } else {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = `${comboEditKey ? 'Salvar alterações' : 'Adicionar combo'} — R$ ${total.toFixed(2).replace('.',',')}`;
+    }
+  }
 }
 
 function confirmCombo(){
