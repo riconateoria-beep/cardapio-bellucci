@@ -239,15 +239,16 @@
   .combo-discount-row{color:var(--gold-light);font-weight:600;}
 
   .combo-savings-bar{
-    position:sticky;top:-4px;z-index:2;
+    position:sticky;top:0;z-index:5;
     margin:0 0 16px;padding:11px 14px;
     border-radius:12px;text-align:center;
     font-size:12.5px;font-weight:600;color:rgba(244,236,218,.55);
-    background:rgba(0,0,0,.3);border:1px dashed rgba(201,162,74,.3);
+    background:#171d17;border:1px dashed rgba(201,162,74,.3);
+    box-shadow:0 6px 12px rgba(0,0,0,.5);
     transition:.25s;
   }
   .combo-savings-bar.active{
-    color:var(--gold-light);border:1px solid var(--gold);background:rgba(201,162,74,.14);
+    color:var(--gold-light);border:1px solid var(--gold);background:#221c10;
   }
   .combo-step-indicator{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -257,9 +258,11 @@
   .combo-step-dots span{width:6px;height:6px;border-radius:50%;background:rgba(244,236,218,.2);transition:.25s;}
   .combo-step-dots span.done{background:var(--gold);}
   .combo-step-dots span.current{background:var(--gold-light);width:16px;border-radius:4px;}
-  .combo-step-nav{display:flex;gap:10px;margin-top:18px;}
+  .combo-step-nav{margin-top:18px;}
+  .combo-step-nav-row{display:flex;gap:10px;}
   .combo-step-nav .btn{flex:1;justify-content:center;padding:14px;border-radius:40px;font-weight:600;font-size:14px;cursor:pointer;}
   .combo-step-nav .btn:disabled{opacity:.4;cursor:default;}
+  .combo-add-more{width:100%;margin-top:10px;padding:12px !important;font-size:12.5px !important;font-weight:500 !important;}
 
   /* ---------- hero ---------- */
   .hero{
@@ -709,6 +712,12 @@
     font-size:11px;padding:0;margin-left:6px;cursor:pointer;text-decoration:underline;
   }
   .checkout-item-edit:hover{color:var(--gold);}
+  .checkout-item-right{display:inline-flex;align-items:center;gap:8px;}
+  .checkout-item-remove{
+    background:none;border:none;color:#e08a8a;font-size:13px;
+    padding:0;cursor:pointer;line-height:1;
+  }
+  .checkout-item-remove:hover{color:#ff9d90;}
 
   .roleta-wheel-wrap{position:relative;width:210px;height:210px;margin:16px auto 0;}
   .roleta-pointer{
@@ -991,6 +1000,7 @@ let SETTINGS = {
   address: "Avenida Independência, 408 — Centro, Cananéia/SP",
   delivery_time: "15-25min",
   min_order: 0,
+  delivery_fee: 0,
   hours: null,
   store_open_override: null
 };
@@ -1035,6 +1045,7 @@ async function loadStoreData(){
       address: settingsRes.data.address,
       delivery_time: settingsRes.data.delivery_time,
       min_order: Number(settingsRes.data.min_order || 0),
+      delivery_fee: Number(settingsRes.data.delivery_fee || 0),
       hours: settingsRes.data.hours,
       store_open_override: settingsRes.data.store_open_override
     };
@@ -1141,8 +1152,9 @@ function couponDiscountAmount(coupon){
 function checkoutTotals(){
   const {total: subtotal} = cartTotals();
   const discount = appliedCoupon ? couponDiscountAmount(appliedCoupon) : 0;
-  const total = Math.max(0, subtotal - discount);
-  return {subtotal, discount, total};
+  const deliveryFee = Number(SETTINGS.delivery_fee || 0);
+  const total = Math.max(0, subtotal - discount) + deliveryFee;
+  return {subtotal, discount, deliveryFee, total};
 }
 
 async function applyCouponCode(rawCode){
@@ -1200,13 +1212,16 @@ function removeCoupon(){
 
 /* ===================== ROLETA BELLUCCI (checkout, pedido 50+) ===================== */
 const ROLETA_MIN = 50;
+// weight = chance relativa (soma dá 100, então cada valor já é a % de chance).
+// prêmios mais baratos pra casa (refri, desconto) saem bem mais que os caros
+// (sorvete, fatia de pizza) — controla o custo real da promoção.
 const ROLETA_PRIZES = [
-  {label:"Açaí",         value:"Complemento grátis no açaí",       code:"GIROACAI"},
-  {label:"Pizza Cone",   value:"Fatia de Pizza no Cone grátis",    code:"GIROPIZZA"},
-  {label:"Picolé",       value:"Picolé Artesanal grátis",          code:"GIROPICOLE"},
-  {label:"Sorvete",      value:"Sorvete Tailandês grátis",         code:"GIROSORVETE"},
-  {label:"Refri",        value:"Refrigerante grátis",              code:"GIROBEBIDA"},
-  {label:"10% OFF",      value:"10% de desconto no pedido",        code:"GIRO10"}
+  {label:"Açaí",         value:"Complemento grátis no açaí",       code:"GIROACAI",    weight:18, kind:"freebie"},
+  {label:"Pizza Cone",   value:"Fatia de Pizza no Cone grátis",    code:"GIROPIZZA",   weight:6,  kind:"freebie"},
+  {label:"Picolé",       value:"Picolé Artesanal grátis",          code:"GIROPICOLE",  weight:15, kind:"freebie"},
+  {label:"Sorvete",      value:"Sorvete Tailandês grátis",         code:"GIROSORVETE", weight:5,  kind:"freebie"},
+  {label:"Refri",        value:"Refrigerante grátis",              code:"GIROBEBIDA",  weight:26, kind:"freebie"},
+  {label:"10% OFF",      value:"10% de desconto no pedido",        code:"GIRO10",      weight:30, kind:"coupon"}
 ];
 
 const ROLETA_SESSION_KEY = "bellucci_roleta_prize";
@@ -1248,7 +1263,64 @@ function roletaConicBackground(){
 }
 
 function pickRoletaIndex(){
-  return Math.floor(Math.random()*ROLETA_PRIZES.length);
+  const totalWeight = ROLETA_PRIZES.reduce((s,p)=>s+p.weight,0);
+  let r = Math.random()*totalWeight;
+  for(let i=0;i<ROLETA_PRIZES.length;i++){
+    r -= ROLETA_PRIZES[i].weight;
+    if(r<=0) return i;
+  }
+  return ROLETA_PRIZES.length-1;
+}
+
+function randomCodeSuffix(len){
+  return Math.random().toString(36).slice(2, 2+len).toUpperCase();
+}
+
+// só dá pra checar o limite se já sabemos o telefone (campo já preenchido,
+// geralmente por já ter pedido antes) — cliente totalmente novo passa direto,
+// o sessionStorage já cobre o caso de girar de novo na mesma aba
+async function checkRoletaEligibility(){
+  const phoneEl = document.getElementById("ck-phone");
+  const digits = phoneEl ? phoneEl.value.replace(/\D/g,"") : "";
+  if(digits.length < 10) return { eligible:true, phone:null };
+  try{
+    const { data, error } = await window.sb.rpc("can_spin_roleta", { p_phone: digits });
+    if(error) return { eligible:true, phone:digits };
+    return { eligible: data !== false, phone: digits };
+  }catch(e){
+    return { eligible:true, phone:digits };
+  }
+}
+
+// prêmio de desconto vira um cupom real e único (uso único), aplicado na
+// hora; prêmios de produto grátis continuam sendo honrados pelo atendente
+// (o código fica registrado no pedido e na tabela roleta_spins)
+async function finalizeRoletaPrize(prize, phone){
+  let finalCode = prize.code;
+
+  if(prize.kind === "coupon"){
+    const uniqueCode = `${prize.code}-${randomCodeSuffix(5)}`;
+    try{
+      const { error } = await window.sb.from("coupons").insert({
+        code: uniqueCode, type: "percent", value: 10, usage_limit: 1, min_order: ROLETA_MIN, active: true
+      });
+      if(!error) finalCode = uniqueCode;
+    }catch(e){}
+  }
+
+  if(phone){
+    try{
+      await window.sb.from("roleta_spins").insert({ customer_phone: phone, prize_code: finalCode, prize_label: prize.value });
+    }catch(e){}
+  }
+
+  const finalPrize = { ...prize, code: finalCode };
+
+  if(prize.kind === "coupon"){
+    appliedCoupon = { code: finalCode, type: "percent", value: 10, category_ids: null };
+  }
+
+  return finalPrize;
 }
 
 function buildRoletaGateHTML(total){
@@ -1266,7 +1338,7 @@ function buildRoletaGateHTML(total){
     return `
       <div class="roleta-gate unlocked" id="roleta-gate">
         <div class="roleta-gate-title">🎉 Roleta Bellucci desbloqueada!</div>
-        <div class="roleta-gate-sub">Seu pedido passou de R$ ${ROLETA_MIN.toFixed(2).replace('.',',')} — gire e garanta um produto Bellucci de brinde.</div>
+        <div class="roleta-gate-sub">Seu pedido passou de R$ ${ROLETA_MIN.toFixed(2).replace('.',',')} — gire e garanta um prêmio Bellucci.</div>
         <button class="roleta-gate-btn" id="roleta-spin-trigger">Girar roleta agora 🎉</button>
       </div>
     `;
@@ -1320,9 +1392,23 @@ function wireRoletaGate(){
   }
 }
 
-function revealAndSpinRoleta(){
+async function revealAndSpinRoleta(){
   const gate = document.getElementById("roleta-gate");
   if(!gate || roletaSpinning || checkoutRoletaPrize) return;
+
+  roletaSpinning = true;
+  gate.innerHTML = `<div class="roleta-gate-title">🎉 Roleta Bellucci</div><div class="roleta-gate-sub">Verificando...</div>`;
+  const { eligible, phone } = await checkRoletaEligibility();
+
+  if(!eligible){
+    roletaSpinning = false;
+    gate.innerHTML = `
+      <div class="roleta-gate-title">🎉 Roleta Bellucci</div>
+      <div class="roleta-gate-sub">Você já girou a roleta hoje — volta amanhã pra tentar de novo! 💛</div>
+    `;
+    return;
+  }
+
   gate.innerHTML = `
     <div class="roleta-gate-title">🎉 Roleta Bellucci</div>
     <div class="roleta-wheel-wrap">
@@ -1332,10 +1418,10 @@ function revealAndSpinRoleta(){
     </div>
     <div id="roleta-result"></div>
   `;
-  spinRoleta();
+  spinRoleta(phone);
 }
 
-function spinRoleta(){
+function spinRoleta(phone){
   roletaSpinning = true;
   const idx = pickRoletaIndex();
   const prize = ROLETA_PRIZES[idx];
@@ -1356,18 +1442,12 @@ function spinRoleta(){
       });
     });
   }
-  setTimeout(()=>{
+  setTimeout(async ()=>{
     roletaSpinning = false;
-    checkoutRoletaPrize = prize;
-    setStoredRoletaPrize(prize);
-    const result = document.getElementById("roleta-result");
-    if(result){
-      result.innerHTML = `
-        <div class="roleta-result-title">Parabéns! Você ganhou</div>
-        <div style="font-size:14px;color:var(--cream);">${prize.value}</div>
-        <div class="roleta-result-code">${prize.code}</div>
-      `;
-    }
+    const finalPrize = await finalizeRoletaPrize(prize, phone);
+    checkoutRoletaPrize = finalPrize;
+    setStoredRoletaPrize(finalPrize);
+    renderCheckoutSummary();
   }, 4000);
 }
 
@@ -1470,11 +1550,14 @@ function renderComboStep(){
 
   const nav = document.getElementById("combo-step-nav");
   nav.innerHTML = `
-    ${comboStepIndex>0 ? `<button class="btn btn-outline" id="combo-back">← Voltar</button>` : ""}
-    ${isLast
-      ? `<button class="btn btn-gold" id="combo-confirm" disabled>Escolha ao menos 2 itens</button>`
-      : `<button class="btn btn-gold" id="combo-next">Próximo →</button>`
-    }
+    ${(comboStepIndex>0 || !isLast) ? `
+      <div class="combo-step-nav-row">
+        ${comboStepIndex>0 ? `<button class="btn btn-outline" id="combo-back">← Voltar</button>` : ""}
+        ${!isLast ? `<button class="btn btn-outline" id="combo-next">Próximo →</button>` : ""}
+      </div>
+    ` : ""}
+    <button class="btn btn-gold" id="combo-confirm" disabled>Escolha ao menos 2 itens</button>
+    <button class="btn btn-outline combo-add-more" id="combo-add-more" disabled>Adicionar e continuar comprando</button>
   `;
   const backBtn = document.getElementById("combo-back");
   if(backBtn) backBtn.onclick = ()=>{ comboStepIndex--; renderComboStep(); };
@@ -1528,18 +1611,25 @@ function refreshComboUI(){
 
   const confirmBtn = document.getElementById("combo-confirm");
   if(confirmBtn){
-    confirmBtn.onclick = confirmCombo;
+    confirmBtn.onclick = ()=> confirmCombo(true);
     if(principalCount < 2){
       confirmBtn.disabled = true;
       confirmBtn.textContent = "Escolha ao menos 2 itens";
     } else {
       confirmBtn.disabled = false;
-      confirmBtn.textContent = `${comboEditKey ? 'Salvar alterações' : 'Adicionar combo'} — R$ ${total.toFixed(2).replace('.',',')}`;
+      confirmBtn.textContent = comboEditKey ? `Salvar e finalizar — R$ ${total.toFixed(2).replace('.',',')}` : `Finalizar agora — R$ ${total.toFixed(2).replace('.',',')}`;
     }
+  }
+
+  const addMoreBtn = document.getElementById("combo-add-more");
+  if(addMoreBtn){
+    addMoreBtn.onclick = ()=> confirmCombo(false);
+    addMoreBtn.disabled = principalCount < 2;
+    addMoreBtn.textContent = comboEditKey ? "Salvar e continuar comprando" : "Adicionar e continuar comprando";
   }
 }
 
-function confirmCombo(){
+function confirmCombo(goToCheckout){
   const {principalCount, discount, total, pct} = comboTotals();
   if(principalCount < 2) return;
 
@@ -1565,13 +1655,15 @@ function confirmCombo(){
     cartLineCounter++;
     cart.push({...lineData, key:"combo_c"+cartLineCounter});
     trackEvent('add_to_cart', {currency:"BRL", value:total, items:itemLines.map(()=>({item_name:"Combo Bellucci"}))});
-    flyAddFeedback(document.getElementById("combo-confirm"));
+    const clickedBtn = document.getElementById(goToCheckout ? "combo-confirm" : "combo-add-more");
+    flyAddFeedback(clickedBtn);
   }
 
   comboSelection = {};
   comboEditKey = null;
   closeModal();
   updateCartBar();
+  if(goToCheckout) openCheckoutModal();
 }
 
 /* ===================== CART ===================== */
@@ -1965,20 +2057,32 @@ function buildCheckoutItemsHTML(){
     return `
     <div class="checkout-summary-row">
       <span>${l.qty}x ${l.name}${editable ? ` <button type="button" class="checkout-item-edit" data-key="${l.key}">✎ editar</button>` : ''}</span>
-      <span>R$ ${(l.unitPrice*l.qty).toFixed(2).replace('.',',')}</span>
+      <span class="checkout-item-right">
+        R$ ${(l.unitPrice*l.qty).toFixed(2).replace('.',',')}
+        <button type="button" class="checkout-item-remove" data-key="${l.key}" aria-label="Remover item">✕</button>
+      </span>
     </div>
   `;
   }).join("");
+}
+
+function removeCartLineFromCheckout(key){
+  removeCartLine(key);
+  if(!cart.length){ closeModal(); return; }
+  renderCheckoutSummary();
 }
 
 function wireCheckoutItemEdits(){
   document.querySelectorAll(".checkout-item-edit").forEach(btn=>{
     btn.onclick = (e)=>{ e.stopPropagation(); editCartLineFromCheckout(btn.dataset.key); };
   });
+  document.querySelectorAll(".checkout-item-remove").forEach(btn=>{
+    btn.onclick = (e)=>{ e.stopPropagation(); removeCartLineFromCheckout(btn.dataset.key); };
+  });
 }
 
 function buildCheckoutHTML(){
-  const {total} = checkoutTotals();
+  const {total, deliveryFee} = checkoutTotals();
   return `
     <div class="modal-sheet" role="dialog" aria-modal="true">
       <button class="modal-close" id="modal-close" aria-label="Fechar">✕</button>
@@ -1988,6 +2092,7 @@ function buildCheckoutHTML(){
       <div class="checkout-summary">
         <div id="checkout-items">${buildCheckoutItemsHTML()}</div>
         <div class="checkout-summary-row" id="coupon-row" style="display:none;"></div>
+        <div class="checkout-summary-row" id="delivery-fee-row"><span>Taxa de entrega</span><span>${deliveryFee>0 ? `R$ ${deliveryFee.toFixed(2).replace('.',',')}` : 'Grátis'}</span></div>
         <div class="checkout-summary-total">
           <span>Total</span>
           <span id="checkout-total-value">R$ ${total.toFixed(2).replace('.',',')}</span>
@@ -2045,7 +2150,7 @@ function buildCheckoutHTML(){
 }
 
 function renderCheckoutSummary(){
-  const {subtotal, discount, total} = checkoutTotals();
+  const {subtotal, discount, total, deliveryFee} = checkoutTotals();
   const itemsEl = document.getElementById("checkout-items");
   if(itemsEl){
     itemsEl.innerHTML = buildCheckoutItemsHTML();
@@ -2058,6 +2163,10 @@ function renderCheckoutSummary(){
       const pctOff = subtotal > 0 ? (discount/subtotal*100) : 0;
       couponRow.innerHTML = `<span>Cupom ${appliedCoupon.code} (-${pctOff.toFixed(pctOff % 1 === 0 ? 0 : 1)}%)</span><span>-R$ ${discount.toFixed(2).replace('.',',')}</span>`;
     }
+  }
+  const deliveryFeeRow = document.getElementById("delivery-fee-row");
+  if(deliveryFeeRow){
+    deliveryFeeRow.innerHTML = `<span>Taxa de entrega</span><span>${deliveryFee>0 ? `R$ ${deliveryFee.toFixed(2).replace('.',',')}` : 'Grátis'}</span>`;
   }
   const totalEl = document.getElementById("checkout-total-value");
   if(totalEl) totalEl.textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
@@ -2133,7 +2242,7 @@ async function submitCheckout(){
   if(!checkoutPayment) valid = false;
   if(!valid) return;
 
-  const {discount, total} = checkoutTotals();
+  const {discount, total, deliveryFee} = checkoutTotals();
   let lines = ["Olá, Bellucci! 👋 Quero fazer o seguinte pedido:", ""];
   cart.forEach(l=>{
     const subtotal = l.unitPrice*l.qty;
@@ -2143,7 +2252,8 @@ async function submitCheckout(){
   if(appliedCoupon){
     lines.push("", `Cupom ${appliedCoupon.code}: -R$ ${discount.toFixed(2).replace('.',',')}`);
   }
-  lines.push("", `Total: R$ ${total.toFixed(2).replace('.',',')}`, "");
+  lines.push("", `Taxa de entrega: ${deliveryFee>0 ? `R$ ${deliveryFee.toFixed(2).replace('.',',')}` : 'Grátis'}`);
+  lines.push(`Total: R$ ${total.toFixed(2).replace('.',',')}`, "");
   lines.push(`Nome: ${name}`);
   lines.push(`Endereço: ${address}`);
   lines.push(`Pagamento: ${checkoutPayment}${checkoutPayment==="Dinheiro" && troco ? ` (troco para ${troco})` : ""}`);

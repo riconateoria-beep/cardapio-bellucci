@@ -485,6 +485,7 @@
         <div class="field"><label>Endereço</label><input type="text" id="set-address"></div>
         <div class="field"><label>Tempo de entrega</label><input type="text" id="set-delivery" placeholder="15-25min"></div>
         <div class="field"><label>Pedido mínimo (R$)</label><input type="number" step="0.01" id="set-minorder"></div>
+        <div class="field"><label>Taxa de entrega (R$, deixe 0 pra entrega grátis)</label><input type="number" step="0.01" id="set-deliveryfee"></div>
         <button class="btn btn-gold" id="save-settings-btn">Salvar configurações</button>
       </div>
       <div class="card">
@@ -737,6 +738,23 @@ function closeModal(){
   document.getElementById("modal-overlay").classList.remove("show");
 }
 
+/* Substitui o confirm() nativo do navegador — em alguns navegadores/webviews
+   ele falha silenciosamente ou nem chega a aparecer, travando a exclusão. */
+function confirmDialog(message, okText){
+  return new Promise(resolve=>{
+    openModal(`
+      <h3>Confirmar</h3>
+      <p style="font-size:13.5px;color:rgba(244,236,218,.75);line-height:1.6;margin:0 0 4px;">${message}</p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" id="confirm-dialog-cancel">Cancelar</button>
+        <button class="btn btn-danger" id="confirm-dialog-ok">${okText || "Confirmar"}</button>
+      </div>
+    `);
+    document.getElementById("confirm-dialog-cancel").onclick = ()=>{ closeModal(); resolve(false); };
+    document.getElementById("confirm-dialog-ok").onclick = ()=>{ closeModal(); resolve(true); };
+  });
+}
+
 /* ===================== PRODUTOS ===================== */
 let allProducts = [];
 let allCategories = [];
@@ -789,7 +807,7 @@ function renderCategoriesTable(){
         showToast("Essa categoria tem produtos — mude a categoria deles antes de excluir.");
         return;
       }
-      if(!confirm("Excluir esta categoria?")) return;
+      if(!await confirmDialog("Excluir esta categoria?", "Excluir")) return;
       const { error } = await window.sb.from("categories").delete().eq("id", btn.dataset.delCat);
       if(error){ showToast("Erro ao excluir categoria: " + error.message); return; }
       showToast("Categoria excluída.");
@@ -861,7 +879,12 @@ function renderProductsTable(){
       <td>R$ ${Number(p.price).toFixed(2).replace('.',',')}</td>
       <td>${p.discount_pct ? `<span class="pill pill-active">-${Math.round(Number(p.discount_pct)*100)}%</span>` : "—"}</td>
       <td>${p.tag === "bestseller" ? "🔥 Mais vendido" : p.tag === "lowstock" ? "⏳ Últimas unidades" : "—"}</td>
-      <td><span class="pill ${p.active ? 'pill-active' : 'pill-inactive'}">${p.active ? "Ativo" : "Oculto"}</span></td>
+      <td>
+        <label class="checkbox-row" style="cursor:pointer;">
+          <input type="checkbox" class="product-active-toggle" data-id="${p.id}" ${p.active ? "checked" : ""}>
+          <span class="pill ${p.active ? 'pill-active' : 'pill-inactive'}">${p.active ? "Ativo" : "Oculto"}</span>
+        </label>
+      </td>
       <td>
         <div class="row-flex">
           <button class="btn btn-outline btn-sm" data-move-up="${p.id}" title="Mover pra cima">↑</button>
@@ -885,6 +908,18 @@ function renderProductsTable(){
   tbody.querySelectorAll("[data-delete]").forEach(btn=>{
     btn.onclick = ()=> deleteProduct(btn.dataset.delete);
   });
+  tbody.querySelectorAll(".product-active-toggle").forEach(cb=>{
+    cb.onchange = ()=> toggleProductActive(cb.dataset.id, cb.checked);
+  });
+}
+
+async function toggleProductActive(id, active){
+  const { error } = await window.sb.from("products").update({ active }).eq("id", id);
+  if(error){ showToast("Erro ao atualizar produto: " + error.message); loadProducts(); return; }
+  const product = allProducts.find(p=>p.id===id);
+  if(product) product.active = active;
+  showToast(active ? "Produto ativado — visível no cardápio." : "Produto ocultado do cardápio.");
+  renderProductsTable();
 }
 
 document.getElementById("add-product-btn").onclick = ()=> openProductForm(null);
@@ -984,7 +1019,7 @@ async function saveProduct(id){
 }
 
 async function deleteProduct(id){
-  if(!confirm("Tem certeza que deseja excluir este produto?")) return;
+  if(!await confirmDialog("Tem certeza que deseja excluir este produto?", "Excluir")) return;
   const { error } = await window.sb.from("products").delete().eq("id", id);
   if(error){ showToast("Erro ao excluir: " + error.message); return; }
   showToast("Produto excluído.");
@@ -1024,6 +1059,7 @@ async function loadSettings(){
   document.getElementById("set-address").value = data.address || "";
   document.getElementById("set-delivery").value = data.delivery_time || "";
   document.getElementById("set-minorder").value = data.min_order || 0;
+  document.getElementById("set-deliveryfee").value = data.delivery_fee || 0;
   document.getElementById("cli-milestone").value = data.loyalty_every_n_orders || 5;
   document.getElementById("cli-inactive-days").value = data.inactive_customer_days || 14;
   document.getElementById("set-msg-preparando").value = data.msg_preparando || "";
@@ -1093,7 +1129,8 @@ document.getElementById("save-settings-btn").onclick = async ()=>{
     whatsapp_number: document.getElementById("set-whatsapp").value.trim(),
     address: document.getElementById("set-address").value.trim(),
     delivery_time: document.getElementById("set-delivery").value.trim(),
-    min_order: parseFloat(document.getElementById("set-minorder").value) || 0
+    min_order: parseFloat(document.getElementById("set-minorder").value) || 0,
+    delivery_fee: parseFloat(document.getElementById("set-deliveryfee").value) || 0
   };
   const { error } = await window.sb.from("settings").update(payload).eq("id", true);
   if(error){ showToast("Erro ao salvar: " + error.message); return; }
@@ -1194,8 +1231,8 @@ function wireKanbanCards(){
     btn.onclick = ()=> updateOrderStatus(btn.dataset.id, "entregue");
   });
   document.querySelectorAll(".order-card-cancel").forEach(btn=>{
-    btn.onclick = ()=>{
-      if(!confirm("Cancelar este pedido?")) return;
+    btn.onclick = async ()=>{
+      if(!await confirmDialog("Cancelar este pedido?", "Cancelar pedido")) return;
       updateOrderStatus(btn.dataset.id, "cancelado");
     };
   });
@@ -1460,7 +1497,7 @@ function renderCouponsTable(coupons){
   });
   tbody.querySelectorAll("[data-delcoupon]").forEach(btn=>{
     btn.onclick = async ()=>{
-      if(!confirm("Excluir este cupom?")) return;
+      if(!await confirmDialog("Excluir este cupom?", "Excluir")) return;
       const { error } = await window.sb.from("coupons").delete().eq("code", btn.dataset.delcoupon);
       if(error){ showToast("Erro ao excluir cupom"); return; }
       showToast("Cupom excluído.");
@@ -1664,7 +1701,7 @@ document.getElementById("add-customer-btn").onclick = ()=>{
 };
 
 async function hideCustomer(phone, name){
-  if(!confirm(`Ocultar ${name} da lista de clientes? O histórico de pedidos continua salvo, e dá pra reativar depois.`)) return;
+  if(!await confirmDialog(`Ocultar ${name} da lista de clientes? O histórico de pedidos continua salvo, e dá pra reativar depois.`, "Ocultar")) return;
   const { error } = await window.sb.from("customers").upsert({ phone, name, active: false }, { onConflict: "phone" });
   if(error){ showToast("Erro ao ocultar cliente: " + error.message); return; }
   showToast("Cliente ocultado.");
@@ -1713,7 +1750,7 @@ async function openCustomerPurchases(phone, name){
   document.getElementById("cp-close").onclick = closeModal;
   document.querySelectorAll("[data-exclude-order]").forEach(btn=>{
     btn.onclick = async ()=>{
-      if(!confirm("Marcar essa compra como \"não contar\"? Ela deixa de entrar nas estatísticas, mas continua salva e pode ser restaurada depois.")) return;
+      if(!await confirmDialog("Marcar essa compra como \"não contar\"? Ela deixa de entrar nas estatísticas, mas continua salva e pode ser restaurada depois.", "Marcar")) return;
       const { error } = await window.sb.from("orders").update({ status: "cancelado" }).eq("id", btn.dataset.excludeOrder);
       if(error){ showToast("Erro ao excluir compra: " + error.message); return; }
       showToast("Compra não vai mais contar nas estatísticas.");
