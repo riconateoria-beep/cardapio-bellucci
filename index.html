@@ -1216,11 +1216,12 @@ const ROLETA_MIN = 50;
 // prêmios mais baratos pra casa (refri, desconto) saem bem mais que os caros
 // (sorvete, fatia de pizza) — controla o custo real da promoção.
 const ROLETA_PRIZES = [
-  {label:"Pizza Cone",   value:"Fatia de Pizza no Cone grátis",    code:"GIROPIZZA",   weight:5,  kind:"freebie"},
-  {label:"Picolé",       value:"Picolé Artesanal grátis",          code:"GIROPICOLE",  weight:5,  kind:"freebie"},
-  {label:"Sorvete",      value:"Sorvete Tailandês grátis",         code:"GIROSORVETE", weight:5,  kind:"freebie"},
-  {label:"Refri",        value:"Refrigerante grátis",              code:"GIROBEBIDA",  weight:5,  kind:"freebie"},
-  {label:"10% OFF",      value:"10% de desconto no pedido",        code:"GIRO10",      weight:80, kind:"coupon"}
+  {label:"Não foi",      value:"Não foi dessa vez",                 code:null,          weight:50,  kind:"none"},
+  {label:"Picolé",       value:"Picolé Artesanal grátis",          code:"GIROPICOLE",  weight:20, kind:"freebie"},
+  {label:"Refri",        value:"Refrigerante grátis",              code:"GIROBEBIDA",  weight:20, kind:"freebie"},
+  {label:"5% OFF",       value:"5% de desconto no pedido",         code:"GIRO5",       weight:5,  kind:"coupon", discountValue:5},
+  {label:"Pizza Cone",   value:"Fatia de Pizza no Cone grátis",    code:"GIROPIZZA",   weight:2.5,kind:"freebie"},
+  {label:"Sorvete",      value:"Sorvete Tailandês grátis",         code:"GIROSORVETE", weight:2.5,kind:"freebie"}
 ];
 
 const ROLETA_SESSION_KEY = "bellucci_roleta_prize";
@@ -1295,13 +1296,13 @@ async function checkRoletaEligibility(){
 // hora; prêmios de produto grátis continuam sendo honrados pelo atendente
 // (o código fica registrado no pedido e na tabela roleta_spins)
 async function finalizeRoletaPrize(prize, phone){
-  let finalCode = prize.code;
+  let finalCode = prize.code || "SEM_PREMIO";
 
   if(prize.kind === "coupon"){
     const uniqueCode = `${prize.code}-${randomCodeSuffix(5)}`;
     try{
       const { error } = await window.sb.from("coupons").insert({
-        code: uniqueCode, type: "percent", value: 10, usage_limit: 1, min_order: ROLETA_MIN, active: true
+        code: uniqueCode, type: "percent", value: prize.discountValue, usage_limit: 1, min_order: ROLETA_MIN, active: true
       });
       if(!error) finalCode = uniqueCode;
     }catch(e){}
@@ -1316,7 +1317,7 @@ async function finalizeRoletaPrize(prize, phone){
   const finalPrize = { ...prize, code: finalCode };
 
   if(prize.kind === "coupon"){
-    appliedCoupon = { code: finalCode, type: "percent", value: 10, category_ids: null };
+    appliedCoupon = { code: finalCode, type: "percent", value: prize.discountValue, category_ids: null };
   }
 
   return finalPrize;
@@ -1324,6 +1325,14 @@ async function finalizeRoletaPrize(prize, phone){
 
 function buildRoletaGateHTML(total){
   if(checkoutRoletaPrize){
+    if(checkoutRoletaPrize.kind === "none"){
+      return `
+        <div class="roleta-gate">
+          <div class="roleta-gate-title">🎉 Roleta Bellucci</div>
+          <div class="roleta-gate-sub">Não foi dessa vez! Continue comprando pra tentar de novo amanhã. 💛</div>
+        </div>
+      `;
+    }
     return `
       <div class="roleta-gate won">
         <div class="roleta-gate-title">🎉 Roleta Bellucci</div>
@@ -2257,7 +2266,7 @@ async function submitCheckout(){
   lines.push(`Endereço: ${address}`);
   lines.push(`Pagamento: ${checkoutPayment}${checkoutPayment==="Dinheiro" && troco ? ` (troco para ${troco})` : ""}`);
 
-  if(checkoutRoletaPrize){
+  if(checkoutRoletaPrize && checkoutRoletaPrize.kind !== "none"){
     lines.push("", `🎉 Prêmio Roleta Bellucci: ${checkoutRoletaPrize.value} (${checkoutRoletaPrize.code})`);
   }
 
