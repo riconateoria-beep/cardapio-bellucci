@@ -1346,7 +1346,7 @@ function buildRoletaGateHTML(total){
     return `
       <div class="roleta-gate unlocked" id="roleta-gate">
         <div class="roleta-gate-title">🎉 Roleta Bellucci desbloqueada!</div>
-        <div class="roleta-gate-sub">Seu pedido passou de R$ ${ROLETA_MIN.toFixed(2).replace('.',',')} — gire e garanta um prêmio Bellucci.</div>
+        <div class="roleta-gate-sub">Seu pedido passou de R$ ${ROLETA_MIN.toFixed(2).replace('.',',')} — gire e concorra a um prêmio Bellucci.</div>
         <button class="roleta-gate-btn" id="roleta-spin-trigger">Girar roleta agora 🎉</button>
       </div>
     `;
@@ -1357,7 +1357,7 @@ function buildRoletaGateHTML(total){
   return `
     <div class="roleta-gate" id="roleta-gate">
       <div class="roleta-gate-title">🎉 Roleta Bellucci</div>
-      <div class="roleta-gate-sub">Faltam <b>R$ ${missing.toFixed(2).replace('.',',')}</b> no seu pedido para desbloquear a roleta com prêmio garantido!</div>
+      <div class="roleta-gate-sub">Faltam <b>R$ ${missing.toFixed(2).replace('.',',')}</b> no seu pedido para desbloquear a roleta e concorrer a um prêmio!</div>
       <div class="roleta-progress"><div class="roleta-progress-fill" style="width:${pct}%"></div></div>
       ${suggestion ? `
         <div class="gap-suggestion">
