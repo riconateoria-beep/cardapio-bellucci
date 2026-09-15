@@ -21,6 +21,20 @@
   gtag('config', 'G-XXXXXXXXXX');
 </script>
 
+<!-- Meta Pixel (Facebook/Instagram Ads) -->
+<script>
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+  document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '214828221705313');
+  fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=214828221705313&ev=PageView&noscript=1"
+/></noscript>
+
 <style>
   :root{
     --green-dark:#213b2c;
@@ -1080,8 +1094,25 @@ function saveCart(){
 }
 
 /* ===================== ANALYTICS (GA4) ===================== */
+const META_PIXEL_EVENT_MAP = {
+  add_to_cart: "AddToCart",
+  begin_checkout: "InitiateCheckout",
+  purchase: "Purchase"
+};
+
 function trackEvent(name, params){
   try{ if(typeof gtag === "function") gtag('event', name, params || {}); }catch(e){}
+  try{
+    const metaEvent = META_PIXEL_EVENT_MAP[name];
+    if(metaEvent && typeof fbq === "function"){
+      fbq('track', metaEvent, {
+        currency: params && params.currency,
+        value: params && params.value,
+        content_type: "product",
+        contents: (params && params.items || []).map(it=>({id: it.item_id, quantity: it.quantity}))
+      });
+    }
+  }catch(e){}
 }
 
 /* ===================== "+1" FEEDBACK & CART BUMP ===================== */
